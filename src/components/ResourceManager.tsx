@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { parseISO } from 'date-fns';
-import { Plus, Trash2 } from 'lucide-react';
+import { parseISO, format } from 'date-fns';
+import { Plus, Trash2, CalendarDays } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { Resource, SENIORITY_LEVELS, COUNTRIES, SENIORITY_EXPERIENCE, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, COUNTRY_FLAGS } from '@/lib/types';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 export default function ResourceManager() {
   const { config, resources, setResources, rateCard, programVacationWeeks } = useProject();
@@ -28,7 +29,7 @@ export default function ResourceManager() {
       seniority: 'Consultant',
       country: 'Netherlands',
       allocationPercent: 100,
-      vacationWeeks: [],
+      vacationDates: [],
     };
     setResources([...resources, newResource]);
   };
@@ -39,15 +40,6 @@ export default function ResourceManager() {
 
   const removeResource = (id: string) => {
     setResources(resources.filter(r => r.id !== id));
-  };
-
-  const toggleVacationWeek = (resourceId: string, weekIndex: number) => {
-    const resource = resources.find(r => r.id === resourceId);
-    if (!resource) return;
-    const vw = resource.vacationWeeks.includes(weekIndex)
-      ? resource.vacationWeeks.filter(w => w !== weekIndex)
-      : [...resource.vacationWeeks, weekIndex];
-    updateResource(resourceId, { vacationWeeks: vw });
   };
 
   return (
@@ -71,7 +63,6 @@ export default function ResourceManager() {
             programVacationWeeks={programVacationWeeks}
             onUpdate={updateResource}
             onRemove={removeResource}
-            onToggleVacation={toggleVacationWeek}
           />
         ))}
       </CardContent>
@@ -80,7 +71,7 @@ export default function ResourceManager() {
 }
 
 function ResourceCard({
-  resource, weeks, rateCard, startDate, endDate, programVacationWeeks, onUpdate, onRemove, onToggleVacation,
+  resource, weeks, rateCard, startDate, endDate, programVacationWeeks, onUpdate, onRemove,
 }: {
   resource: Resource;
   weeks: ReturnType<typeof getProjectWeeks>;
@@ -90,7 +81,6 @@ function ResourceCard({
   programVacationWeeks: number[];
   onUpdate: (id: string, u: Partial<Resource>) => void;
   onRemove: (id: string) => void;
-  onToggleVacation: (id: string, week: number) => void;
 }) {
   const calc = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -99,6 +89,22 @@ function ResourceCard({
 
   const currency = COUNTRY_CURRENCY[resource.country];
   const symbol = CURRENCY_SYMBOLS[currency];
+
+  // Parse vacation dates for the calendar
+  const selectedDates = useMemo(() =>
+    (resource.vacationDates ?? []).map(d => parseISO(d)),
+    [resource.vacationDates]
+  );
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const iso = format(date, 'yyyy-MM-dd');
+    const current = resource.vacationDates ?? [];
+    const updated = current.includes(iso)
+      ? current.filter(d => d !== iso)
+      : [...current, iso];
+    onUpdate(resource.id, { vacationDates: updated });
+  };
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
@@ -140,22 +146,30 @@ function ResourceCard({
             <Slider value={[resource.allocationPercent]} onValueChange={v => onUpdate(resource.id, { allocationPercent: v[0] })} min={0} max={100} step={5} className="mt-2" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Vacation Weeks</Label>
+            <Label className="text-xs">Vacation Days</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full h-9 justify-start text-xs">
-                  {resource.vacationWeeks.length > 0 ? `${resource.vacationWeeks.length} week(s)` : 'Select weeks'}
+                  <CalendarDays className="mr-1 h-3 w-3" />
+                  {(resource.vacationDates ?? []).length > 0
+                    ? `${(resource.vacationDates ?? []).length} day(s)`
+                    : 'Select dates'}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 max-h-60 overflow-y-auto p-2" align="start">
-                {weeks.length === 0 ? (
-                  <p className="text-xs text-muted-foreground p-2">Set project dates first</p>
-                ) : weeks.map(w => (
-                  <label key={w.index} className="flex items-center gap-2 px-2 py-1 text-xs cursor-pointer hover:bg-accent rounded">
-                    <Checkbox checked={resource.vacationWeeks.includes(w.index)} onCheckedChange={() => onToggleVacation(resource.id, w.index)} />
-                    {w.label}
-                  </label>
-                ))}
+              <PopoverContent className="w-auto p-0" align="start">
+                {startDate && endDate ? (
+                  <Calendar
+                    mode="multiple"
+                    selected={selectedDates}
+                    onDayClick={handleDateSelect}
+                    defaultMonth={startDate}
+                    fromDate={startDate}
+                    toDate={endDate}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground p-4">Set project dates first</p>
+                )}
               </PopoverContent>
             </Popover>
           </div>
