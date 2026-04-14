@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { parseISO, format } from 'date-fns';
+import { parseISO, format, eachDayOfInterval, isWeekend } from 'date-fns';
 import { Plus, Trash2, CalendarDays } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { Resource, SENIORITY_LEVELS, COUNTRIES, SENIORITY_EXPERIENCE, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, COUNTRY_FLAGS } from '@/lib/types';
@@ -96,15 +96,45 @@ function ResourceCard({
     [resource.vacationDates]
   );
 
+  // Compute disabled dates: weekdays in program-level vacation weeks
+  const programVacationDates = useMemo(() => {
+    if (!startDate || !endDate || weeks.length === 0) return [];
+    const programVacSet = new Set(programVacationWeeks);
+    const disabled: Date[] = [];
+    weeks.forEach(week => {
+      if (programVacSet.has(week.index)) {
+        const days = eachDayOfInterval({ start: week.startDate, end: week.endDate });
+        days.forEach(d => {
+          if (!isWeekend(d)) disabled.push(d);
+        });
+      }
+    });
+    return disabled;
+  }, [weeks, programVacationWeeks, startDate, endDate]);
+
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
     const iso = format(date, 'yyyy-MM-dd');
     const current = resource.vacationDates ?? [];
+    // Filter out any dates that overlap with program vacation weeks
     const updated = current.includes(iso)
       ? current.filter(d => d !== iso)
       : [...current, iso];
     onUpdate(resource.id, { vacationDates: updated });
   };
+
+  // Filter out resource vacation dates that overlap with program vacation weeks
+  const cleanVacationDates = useMemo(() => {
+    const programSet = new Set(programVacationDates.map(d => format(d, 'yyyy-MM-dd')));
+    return (resource.vacationDates ?? []).filter(d => !programSet.has(d));
+  }, [resource.vacationDates, programVacationDates]);
+
+  // If there are stale overlapping dates, clean them up
+  useMemo(() => {
+    if (cleanVacationDates.length !== (resource.vacationDates ?? []).length) {
+      onUpdate(resource.id, { vacationDates: cleanVacationDates });
+    }
+  }, [cleanVacationDates]);
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
@@ -151,22 +181,30 @@ function ResourceCard({
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full h-9 justify-start text-xs">
                   <CalendarDays className="mr-1 h-3 w-3" />
-                  {(resource.vacationDates ?? []).length > 0
-                    ? `${(resource.vacationDates ?? []).length} day(s)`
+                  {cleanVacationDates.length > 0
+                    ? `${cleanVacationDates.length} day(s)`
                     : 'Select dates'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 {startDate && endDate ? (
-                  <Calendar
-                    mode="multiple"
-                    selected={selectedDates}
-                    onDayClick={handleDateSelect}
-                    defaultMonth={startDate}
-                    fromDate={startDate}
-                    toDate={endDate}
-                    className={cn("p-3 pointer-events-auto")}
-                  />
+                  <div>
+                    <Calendar
+                      mode="multiple"
+                      selected={selectedDates}
+                      onDayClick={handleDateSelect}
+                      defaultMonth={startDate}
+                      fromDate={startDate}
+                      toDate={endDate}
+                      disabled={programVacationDates}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                    {programVacationDates.length > 0 && (
+                      <p className="text-xs text-muted-foreground px-3 pb-3">
+                        Greyed-out dates are program-level vacation weeks.
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-xs text-muted-foreground p-4">Set project dates first</p>
                 )}
