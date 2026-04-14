@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ProjectConfig, Resource, RateCard, Currency } from '@/lib/types';
+import { ProjectConfig, Resource, RateCard, Currency, COUNTRIES } from '@/lib/types';
 import { defaultRateCard } from '@/lib/rateCardDefaults';
 
 interface ProjectState {
@@ -19,9 +19,12 @@ interface ProjectState {
   setBufferPercent: (v: number) => void;
   targetCurrency: Currency;
   setTargetCurrency: (c: Currency) => void;
+  programVacationWeeks: number[];
+  setProgramVacationWeeks: (w: number[]) => void;
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
+const STATE_VERSION = 2; // bump when country/seniority list changes
 
 const ProjectContext = createContext<ProjectState | null>(null);
 
@@ -36,14 +39,10 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Validate rateCard has current seniority keys; if not, discard it
-      if (parsed?.rateCard && !parsed.rateCard['Junior Consultant']) {
-        parsed.rateCard = null;
-      }
-      // Validate resources have current seniority values
-      if (parsed?.resources) {
-        const validSeniorities = ['Junior Consultant', 'Consultant', 'Senior Consultant', 'Manager', 'Sr. Manager', 'Managing Director/VP'];
-        parsed.resources = parsed.resources.filter((r: any) => validSeniorities.includes(r.seniority));
+      // If version mismatch or missing new countries, reset
+      if (parsed?._version !== STATE_VERSION) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
       }
       return parsed;
     }
@@ -52,7 +51,7 @@ function loadState() {
 }
 
 function saveState(state: any) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, _version: STATE_VERSION }));
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
@@ -66,10 +65,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [bufferEnabled, setBufferEnabled] = useState(saved?.bufferEnabled ?? false);
   const [bufferPercent, setBufferPercent] = useState(saved?.bufferPercent ?? 10);
   const [targetCurrency, setTargetCurrency] = useState<Currency>(saved?.targetCurrency ?? 'EUR');
+  const [programVacationWeeks, setProgramVacationWeeks] = useState<number[]>(saved?.programVacationWeeks ?? []);
 
   useEffect(() => {
-    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency });
-  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency]);
+    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks });
+  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks]);
 
   return (
     <ProjectContext.Provider value={{
@@ -77,6 +77,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       colaEnabled, setColaEnabled, colaPercent, setColaPercent,
       bufferEnabled, setBufferEnabled, bufferPercent, setBufferPercent,
       targetCurrency, setTargetCurrency,
+      programVacationWeeks, setProgramVacationWeeks,
     }}>
       {children}
     </ProjectContext.Provider>

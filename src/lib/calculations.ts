@@ -28,13 +28,17 @@ export function calculateResource(
   rateCard: RateCard,
   projectStart: Date,
   projectEnd: Date,
+  programVacationWeeks: number[] = [],
 ): ResourceCalculation {
-  const dailyRate = rateCard[resource.seniority][resource.country];
+  const dailyRate = rateCard[resource.seniority]?.[resource.country] ?? 0;
   const holidays = getHolidaysInRange(resource.country, projectStart, projectEnd);
   const allocation = resource.allocationPercent / 100;
 
+  // Merge program-level and resource-level vacation weeks
+  const allVacationWeeks = new Set([...resource.vacationWeeks, ...programVacationWeeks]);
+
   const weeklyBreakdown = weeks.map((week) => {
-    if (resource.vacationWeeks.includes(week.index)) {
+    if (allVacationWeeks.has(week.index)) {
       return { week: week.index, billableDays: 0, price: 0 };
     }
 

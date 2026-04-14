@@ -6,23 +6,20 @@ import RateCardEditor from '@/components/RateCardEditor';
 import ResourceManager from '@/components/ResourceManager';
 import PriceAdjustments from '@/components/PriceAdjustments';
 import SummaryView from '@/components/SummaryView';
+import HolidayDisplay from '@/components/HolidayDisplay';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
-import { COUNTRY_CURRENCY } from '@/lib/types';
-import { convertCurrency } from '@/lib/currencyRates';
 
 function PricingCalculator() {
-  const { config, resources, rateCard, targetCurrency } = useProject();
+  const { config, resources, rateCard, programVacationWeeks } = useProject();
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
   const endDate = config.endDate ? parseISO(config.endDate) : null;
   const weeks = startDate && endDate ? getProjectWeeks(startDate, endDate) : [];
 
-  // Grand total in target currency for PriceAdjustments
-  // Note: PriceAdjustments receives a simple number; currency conversion happens in SummaryView
   const grandTotal = useMemo(() => {
     if (!startDate || !endDate) return 0;
-    return resources.reduce((sum, r) => sum + calculateResource(r, weeks, rateCard, startDate, endDate).totalPrice, 0);
-  }, [resources, weeks, rateCard, startDate, endDate]);
+    return resources.reduce((sum, r) => sum + calculateResource(r, weeks, rateCard, startDate, endDate, programVacationWeeks).totalPrice, 0);
+  }, [resources, weeks, rateCard, startDate, endDate, programVacationWeeks]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -38,6 +35,7 @@ function PricingCalculator() {
         <ProjectSetup />
         <RateCardEditor />
         <ResourceManager />
+        <HolidayDisplay />
         <PriceAdjustments grandTotal={grandTotal} />
         <SummaryView />
       </main>

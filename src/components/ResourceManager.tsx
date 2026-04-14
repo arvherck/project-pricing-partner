@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { parseISO } from 'date-fns';
 import { Plus, Trash2 } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
-import { Resource, SENIORITY_LEVELS, COUNTRIES, SENIORITY_EXPERIENCE, COUNTRY_CURRENCY, CURRENCY_SYMBOLS } from '@/lib/types';
+import { Resource, SENIORITY_LEVELS, COUNTRIES, SENIORITY_EXPERIENCE, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, COUNTRY_FLAGS } from '@/lib/types';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ResourceManager() {
-  const { config, resources, setResources, rateCard } = useProject();
+  const { config, resources, setResources, rateCard, programVacationWeeks } = useProject();
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
   const endDate = config.endDate ? parseISO(config.endDate) : null;
@@ -68,6 +68,7 @@ export default function ResourceManager() {
             rateCard={rateCard}
             startDate={startDate}
             endDate={endDate}
+            programVacationWeeks={programVacationWeeks}
             onUpdate={updateResource}
             onRemove={removeResource}
             onToggleVacation={toggleVacationWeek}
@@ -79,21 +80,22 @@ export default function ResourceManager() {
 }
 
 function ResourceCard({
-  resource, weeks, rateCard, startDate, endDate, onUpdate, onRemove, onToggleVacation,
+  resource, weeks, rateCard, startDate, endDate, programVacationWeeks, onUpdate, onRemove, onToggleVacation,
 }: {
   resource: Resource;
   weeks: ReturnType<typeof getProjectWeeks>;
   rateCard: any;
   startDate: Date | null;
   endDate: Date | null;
+  programVacationWeeks: number[];
   onUpdate: (id: string, u: Partial<Resource>) => void;
   onRemove: (id: string) => void;
   onToggleVacation: (id: string, week: number) => void;
 }) {
   const calc = useMemo(() => {
     if (!startDate || !endDate) return null;
-    return calculateResource(resource, weeks, rateCard, startDate, endDate);
-  }, [resource, weeks, rateCard, startDate, endDate]);
+    return calculateResource(resource, weeks, rateCard, startDate, endDate, programVacationWeeks);
+  }, [resource, weeks, rateCard, startDate, endDate, programVacationWeeks]);
 
   const currency = COUNTRY_CURRENCY[resource.country];
   const symbol = CURRENCY_SYMBOLS[currency];
@@ -124,7 +126,13 @@ function ResourceCard({
             <Label className="text-xs">Country</Label>
             <Select value={resource.country} onValueChange={v => onUpdate(resource.id, { country: v as any })}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>{COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {COUNTRIES.map(c => (
+                  <SelectItem key={c} value={c}>
+                    <span className="mr-2">{COUNTRY_FLAGS[c]}</span>{c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
