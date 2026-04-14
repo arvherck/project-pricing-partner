@@ -9,11 +9,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getTotalWeeks, getProjectWeeks } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
+import { ALL_CURRENCIES, CURRENCY_SYMBOLS, Currency } from '@/lib/types';
 
 export default function ProjectSetup() {
-  const { config, setConfig, programVacationWeeks, setProgramVacationWeeks } = useProject();
+  const { config, setConfig, programVacationWeeks, setProgramVacationWeeks, targetCurrency, setTargetCurrency } = useProject();
 
   const startDate = config.startDate ? parseISO(config.startDate) : undefined;
   const endDate = config.endDate ? parseISO(config.endDate) : undefined;
@@ -34,7 +36,7 @@ export default function ProjectSetup() {
         <CardTitle>Project Setup</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-2">
             <Label>Project Name</Label>
             <Input
@@ -76,6 +78,17 @@ export default function ProjectSetup() {
             <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm font-semibold">
               {totalWeeks > 0 ? `${totalWeeks} weeks` : '—'}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Project Currency</Label>
+            <Select value={targetCurrency} onValueChange={v => setTargetCurrency(v as Currency)}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ALL_CURRENCIES.map(c => (
+                  <SelectItem key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

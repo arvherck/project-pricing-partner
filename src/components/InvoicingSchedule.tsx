@@ -3,8 +3,8 @@ import { parseISO, format, isWithinInterval, eachDayOfInterval, isWeekend } from
 import { Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
-import { InvoiceRow, CURRENCY_SYMBOLS, COUNTRY_CURRENCY, ALL_CURRENCIES, Currency } from '@/lib/types';
-import { fetchECBRates, convertCurrency } from '@/lib/currencyRates';
+import { InvoiceRow, CURRENCY_SYMBOLS, COUNTRY_CURRENCY } from '@/lib/types';
+import { fetchECBRates, convertCurrency, mergeRates } from '@/lib/currencyRates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,12 @@ import { cn } from '@/lib/utils';
 export default function InvoicingSchedule() {
   const {
     config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent,
-    targetCurrency, programVacationWeeks, invoiceRows, setInvoiceRows,
+    targetCurrency, programVacationWeeks, invoiceRows, setInvoiceRows, customRates,
   } = useProject();
 
-  const [rates, setRates] = useState<Record<string, number>>({});
-  useEffect(() => { fetchECBRates().then(setRates); }, []);
+  const [fetchedRates, setFetchedRates] = useState<Record<string, number>>({});
+  useEffect(() => { fetchECBRates().then(setFetchedRates); }, []);
+  const rates = useMemo(() => mergeRates(fetchedRates, customRates), [fetchedRates, customRates]);
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
   const endDate = config.endDate ? parseISO(config.endDate) : null;

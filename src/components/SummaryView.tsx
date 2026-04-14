@@ -1,21 +1,23 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { parseISO } from 'date-fns';
-import { Download } from 'lucide-react';
+import { Download, RotateCcw } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
-import { COUNTRY_CURRENCY, CURRENCY_SYMBOLS, ALL_CURRENCIES, COUNTRY_FLAGS, Currency } from '@/lib/types';
-import { fetchECBRates, convertCurrency, getEurBasedRates } from '@/lib/currencyRates';
+import { COUNTRY_CURRENCY, CURRENCY_SYMBOLS, COUNTRY_FLAGS, Currency } from '@/lib/types';
+import { fetchECBRates, convertCurrency, getEurBasedRates, mergeRates } from '@/lib/currencyRates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function SummaryView() {
-  const { config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, setTargetCurrency, programVacationWeeks } = useProject();
+  const { config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, customRates, setCustomRates } = useProject();
 
-  const [rates, setRates] = useState<Record<string, number>>({});
-  useEffect(() => { fetchECBRates().then(setRates); }, []);
+  const [fetchedRates, setFetchedRates] = useState<Record<string, number>>({});
+  useEffect(() => { fetchECBRates().then(setFetchedRates); }, []);
+  const rates = useMemo(() => mergeRates(fetchedRates, customRates), [fetchedRates, customRates]);
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
   const endDate = config.endDate ? parseISO(config.endDate) : null;
@@ -38,7 +40,8 @@ export default function SummaryView() {
     return Array.from(set);
   }, [resources, targetCurrency]);
 
-  const eurRates = useMemo(() => getEurBasedRates(rates), [rates]);
+  const fetchedEurRates = useMemo(() => getEurBasedRates(fetchedRates), [fetchedRates]);
+  const mergedEurRates = useMemo(() => getEurBasedRates(rates), [rates]);
 
   const grandTotalConverted = calculations.reduce((s, c) => s + c.convertedPrice, 0);
   const totalDays = calculations.reduce((s, c) => s + c.totalWorkingDays, 0);
@@ -50,6 +53,21 @@ export default function SummaryView() {
 
   const targetSymbol = CURRENCY_SYMBOLS[targetCurrency];
   const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+  const handleRateChange = (currency: Currency, value: string) => {
+    const num = parseFloat(value);
+    if (!value || isNaN(num)) {
+      setCustomRates({ ...customRates, [`EUR_${currency}`]: null });
+    } else {
+      setCustomRates({ ...customRates, [`EUR_${currency}`]: num });
+    }
+  };
+
+  const resetRate = (currency: Currency) => {
+    const updated = { ...customRates };
+    delete updated[`EUR_${currency}`];
+    setCustomRates(updated);
+  };
 
   const exportCSV = () => {
     const header = `Resource,Country,Working Days,Hours,Local Cost,Cost (${targetCurrency})\n`;
@@ -95,19 +113,8 @@ export default function SummaryView() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Summary</CardTitle>
+        <CardTitle>Summary ({targetSymbol} {targetCurrency})</CardTitle>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Label className="text-xs whitespace-nowrap">Target Currency</Label>
-            <Select value={targetCurrency} onValueChange={v => setTargetCurrency(v as Currency)}>
-              <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALL_CURRENCIES.map(c => (
-                  <SelectItem key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={calculations.length === 0}>
             <Download className="mr-1 h-4 w-4" /> CSV
           </Button>
@@ -158,13 +165,36 @@ export default function SummaryView() {
 
             {usedCurrencies.length > 1 && (
               <div className="mt-6 pt-4 border-t">
-                <h4 className="text-sm font-semibold mb-2">Exchange Rates Applied (base: EUR)</h4>
+                <h4 className="text-sm font-semibold mb-2">Exchange Rates (base: EUR) — click to edit</h4>
                 <div className="flex flex-wrap gap-3 text-xs">
-                  {usedCurrencies.filter(c => c !== 'EUR').map(c => (
-                    <div key={c} className="rounded border px-2 py-1">
-                      1 EUR = {eurRates[c]?.toFixed(4) ?? '—'} {c} ({CURRENCY_SYMBOLS[c]})
-                    </div>
-                  ))}
+                  <TooltipProvider>
+                    {usedCurrencies.filter(c => c !== 'EUR').map(c => {
+                      const isCustom = customRates[`EUR_${c}`] != null;
+                      return (
+                        <div key={c} className={`flex items-center gap-1 rounded border px-2 py-1 ${isCustom ? 'border-primary bg-primary/5' : ''}`}>
+                          <span className="whitespace-nowrap">1 EUR =</span>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={isCustom ? (customRates[`EUR_${c}`] ?? '') : (fetchedEurRates[c]?.toFixed(4) ?? '')}
+                            onChange={e => handleRateChange(c, e.target.value)}
+                            className="h-6 w-20 text-xs px-1 border-0 bg-transparent focus-visible:ring-1"
+                          />
+                          <span className="whitespace-nowrap">{c}</span>
+                          {isCustom && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => resetRate(c)}>
+                                  <RotateCcw className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Reset to API rate ({fetchedEurRates[c]?.toFixed(4)})</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </TooltipProvider>
                 </div>
               </div>
             )}

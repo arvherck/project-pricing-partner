@@ -82,6 +82,17 @@ export function getEurBasedRates(rates: Record<string, number>): Record<Currency
   return eurRates;
 }
 
+export function mergeRates(
+  fetched: Record<string, number>,
+  custom: Record<string, number | null>,
+): Record<string, number> {
+  const merged = { ...fetched };
+  for (const [key, val] of Object.entries(custom)) {
+    if (val != null && val > 0) merged[key] = val;
+  }
+  return merged;
+}
+
 export function convertCurrency(
   amount: number,
   from: Currency,
