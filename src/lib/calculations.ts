@@ -22,6 +22,8 @@ export function getTotalWeeks(start: Date, end: Date): number {
   return differenceInCalendarWeeks(end, start, { weekStartsOn: 1 }) + 1;
 }
 
+const HOURS_PER_DAY = 8;
+
 export function calculateResource(
   resource: Resource,
   weeks: ProjectWeek[],
@@ -30,28 +32,29 @@ export function calculateResource(
   projectEnd: Date,
   programVacationWeeks: number[] = [],
 ): ResourceCalculation {
-  const dailyRate = rateCard[resource.seniority]?.[resource.country] ?? 0;
+  const hourlyRate = rateCard[resource.seniority]?.[resource.country] ?? 0;
   const holidays = getHolidaysInRange(resource.country, projectStart, projectEnd);
   const allocation = resource.allocationPercent / 100;
 
-  // Merge program-level and resource-level vacation weeks
   const allVacationWeeks = new Set([...resource.vacationWeeks, ...programVacationWeeks]);
 
   const weeklyBreakdown = weeks.map((week) => {
     if (allVacationWeeks.has(week.index)) {
-      return { week: week.index, billableDays: 0, price: 0 };
+      return { week: week.index, billableDays: 0, billableHours: 0, price: 0 };
     }
 
     const days = eachDayOfInterval({ start: week.startDate, end: week.endDate });
     const workingDays = days.filter(d => !isWeekend(d) && !isHoliday(d, holidays));
     const billableDays = workingDays.length * allocation;
-    const price = billableDays * dailyRate;
+    const billableHours = billableDays * HOURS_PER_DAY;
+    const price = billableHours * hourlyRate;
 
-    return { week: week.index, billableDays, price };
+    return { week: week.index, billableDays, billableHours, price };
   });
 
   const totalWorkingDays = weeklyBreakdown.reduce((s, w) => s + w.billableDays, 0);
+  const totalWorkingHours = weeklyBreakdown.reduce((s, w) => s + w.billableHours, 0);
   const totalPrice = weeklyBreakdown.reduce((s, w) => s + w.price, 0);
 
-  return { resourceId: resource.id, weeklyBreakdown, totalWorkingDays, totalPrice };
+  return { resourceId: resource.id, weeklyBreakdown, totalWorkingDays, totalWorkingHours, totalPrice };
 }

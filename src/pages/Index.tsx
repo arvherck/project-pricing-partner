@@ -4,9 +4,11 @@ import { ProjectProvider, useProject } from '@/context/ProjectContext';
 import ProjectSetup from '@/components/ProjectSetup';
 import RateCardEditor from '@/components/RateCardEditor';
 import ResourceManager from '@/components/ResourceManager';
+import WeeklyBreakdown from '@/components/WeeklyBreakdown';
 import PriceAdjustments from '@/components/PriceAdjustments';
 import SummaryView from '@/components/SummaryView';
 import HolidayDisplay from '@/components/HolidayDisplay';
+import InvoicingSchedule from '@/components/InvoicingSchedule';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 
 function PricingCalculator() {
@@ -35,9 +37,11 @@ function PricingCalculator() {
         <ProjectSetup />
         <RateCardEditor />
         <ResourceManager />
+        <WeeklyBreakdown />
         <HolidayDisplay />
         <PriceAdjustments grandTotal={grandTotal} />
         <SummaryView />
+        <InvoicingSchedule />
       </main>
     </div>
   );

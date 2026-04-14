@@ -3,7 +3,7 @@ import { parseISO } from 'date-fns';
 import { Download } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
-import { ResourceCalculation, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, ALL_CURRENCIES, COUNTRY_FLAGS, Currency } from '@/lib/types';
+import { COUNTRY_CURRENCY, CURRENCY_SYMBOLS, ALL_CURRENCIES, COUNTRY_FLAGS, Currency } from '@/lib/types';
 import { fetchECBRates, convertCurrency, getEurBasedRates } from '@/lib/currencyRates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -15,10 +15,7 @@ export default function SummaryView() {
   const { config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, setTargetCurrency, programVacationWeeks } = useProject();
 
   const [rates, setRates] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    fetchECBRates().then(setRates);
-  }, []);
+  useEffect(() => { fetchECBRates().then(setRates); }, []);
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
   const endDate = config.endDate ? parseISO(config.endDate) : null;
@@ -30,17 +27,10 @@ export default function SummaryView() {
       const calc = calculateResource(r, weeks, rateCard, startDate, endDate, programVacationWeeks);
       const localCurrency = COUNTRY_CURRENCY[r.country];
       const convertedPrice = convertCurrency(calc.totalPrice, localCurrency, targetCurrency, rates);
-      return {
-        ...calc,
-        name: r.name || 'Unnamed',
-        country: r.country,
-        localCurrency,
-        convertedPrice,
-      };
+      return { ...calc, name: r.name || 'Unnamed', country: r.country, localCurrency, convertedPrice };
     });
   }, [resources, weeks, rateCard, startDate, endDate, targetCurrency, rates, programVacationWeeks]);
 
-  // Currency rates in use
   const usedCurrencies = useMemo(() => {
     const set = new Set<Currency>();
     resources.forEach(r => set.add(COUNTRY_CURRENCY[r.country]));
@@ -52,6 +42,7 @@ export default function SummaryView() {
 
   const grandTotalConverted = calculations.reduce((s, c) => s + c.convertedPrice, 0);
   const totalDays = calculations.reduce((s, c) => s + c.totalWorkingDays, 0);
+  const totalHours = calculations.reduce((s, c) => s + c.totalWorkingHours, 0);
   const colaMultiplier = 1 + colaPercent / 100;
   const bufferMultiplier = 1 + bufferPercent / 100;
   const afterCola = colaEnabled ? grandTotalConverted * colaMultiplier : grandTotalConverted;
@@ -61,12 +52,12 @@ export default function SummaryView() {
   const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
   const exportCSV = () => {
-    const header = `Resource,Country,Working Days,Local Cost,Cost (${targetCurrency})\n`;
+    const header = `Resource,Country,Working Days,Hours,Local Cost,Cost (${targetCurrency})\n`;
     const rows = calculations.map(c => {
       const ls = CURRENCY_SYMBOLS[c.localCurrency];
-      return `"${c.name}","${c.country}",${c.totalWorkingDays.toFixed(1)},${ls}${c.totalPrice.toFixed(0)},${targetSymbol}${c.convertedPrice.toFixed(0)}`;
+      return `"${c.name}","${c.country}",${c.totalWorkingDays.toFixed(1)},${c.totalWorkingHours.toFixed(0)},${ls}${c.totalPrice.toFixed(0)},${targetSymbol}${c.convertedPrice.toFixed(0)}`;
     }).join('\n');
-    const summary = `\n\nSubtotal,,${totalDays.toFixed(1)},,${targetSymbol}${grandTotalConverted.toFixed(0)}\n${colaEnabled ? `COLA (${colaPercent}%),,,,"${targetSymbol}${(grandTotalConverted * (colaMultiplier - 1)).toFixed(0)}"\n` : ''}${bufferEnabled ? `Buffer (${bufferPercent}%),,,,"${targetSymbol}${(afterCola * (bufferMultiplier - 1)).toFixed(0)}"\n` : ''}Grand Total,,${totalDays.toFixed(1)},,${targetSymbol}${afterBuffer.toFixed(0)}`;
+    const summary = `\n\nSubtotal,,${totalDays.toFixed(1)},${totalHours.toFixed(0)},,${targetSymbol}${grandTotalConverted.toFixed(0)}\n${colaEnabled ? `COLA (${colaPercent}%),,,,,"${targetSymbol}${(grandTotalConverted * (colaMultiplier - 1)).toFixed(0)}"\n` : ''}${bufferEnabled ? `Buffer (${bufferPercent}%),,,,,"${targetSymbol}${(afterCola * (bufferMultiplier - 1)).toFixed(0)}"\n` : ''}Grand Total,,${totalDays.toFixed(1)},${totalHours.toFixed(0)},,${targetSymbol}${afterBuffer.toFixed(0)}`;
     const blob = new Blob([header + rows + summary], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -85,16 +76,16 @@ export default function SummaryView() {
 
     autoTable(doc, {
       startY: 35,
-      head: [['Resource', 'Country', 'Days', `Local Cost`, `Cost (${targetCurrency})`]],
+      head: [['Resource', 'Country', 'Days', 'Hours', `Local Cost`, `Cost (${targetCurrency})`]],
       body: calculations.map(c => {
         const ls = CURRENCY_SYMBOLS[c.localCurrency];
-        return [c.name, c.country, c.totalWorkingDays.toFixed(1), `${ls}${fmt(c.totalPrice)}`, `${targetSymbol}${fmt(c.convertedPrice)}`];
+        return [c.name, c.country, c.totalWorkingDays.toFixed(1), c.totalWorkingHours.toFixed(0), `${ls}${fmt(c.totalPrice)}`, `${targetSymbol}${fmt(c.convertedPrice)}`];
       }),
       foot: [
-        ['Subtotal', '', totalDays.toFixed(1), '', `${targetSymbol}${fmt(grandTotalConverted)}`],
-        ...(colaEnabled ? [['COLA (' + colaPercent + '%)', '', '', '', `+${targetSymbol}${fmt(grandTotalConverted * (colaMultiplier - 1))}`]] : []),
-        ...(bufferEnabled ? [['Buffer (' + bufferPercent + '%)', '', '', '', `+${targetSymbol}${fmt(afterCola * (bufferMultiplier - 1))}`]] : []),
-        ['Grand Total', '', totalDays.toFixed(1), '', `${targetSymbol}${fmt(afterBuffer)}`],
+        ['Subtotal', '', totalDays.toFixed(1), totalHours.toFixed(0), '', `${targetSymbol}${fmt(grandTotalConverted)}`],
+        ...(colaEnabled ? [['COLA (' + colaPercent + '%)', '', '', '', '', `+${targetSymbol}${fmt(grandTotalConverted * (colaMultiplier - 1))}`]] : []),
+        ...(bufferEnabled ? [['Buffer (' + bufferPercent + '%)', '', '', '', '', `+${targetSymbol}${fmt(afterCola * (bufferMultiplier - 1))}`]] : []),
+        ['Grand Total', '', totalDays.toFixed(1), totalHours.toFixed(0), '', `${targetSymbol}${fmt(afterBuffer)}`],
       ],
     });
 
@@ -135,7 +126,8 @@ export default function SummaryView() {
                 <TableRow>
                   <TableHead>Resource</TableHead>
                   <TableHead>Country</TableHead>
-                  <TableHead className="text-right">Working Days</TableHead>
+                  <TableHead className="text-right">Days</TableHead>
+                  <TableHead className="text-right">Hours</TableHead>
                   <TableHead className="text-right">Local Cost</TableHead>
                   <TableHead className="text-right">Cost ({targetCurrency})</TableHead>
                 </TableRow>
@@ -148,6 +140,7 @@ export default function SummaryView() {
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell>{COUNTRY_FLAGS[c.country as keyof typeof COUNTRY_FLAGS]} {c.country}</TableCell>
                       <TableCell className="text-right">{c.totalWorkingDays.toFixed(1)}</TableCell>
+                      <TableCell className="text-right">{c.totalWorkingHours.toFixed(0)}</TableCell>
                       <TableCell className="text-right">{ls}{fmt(c.totalPrice)}</TableCell>
                       <TableCell className="text-right">{targetSymbol}{fmt(c.convertedPrice)}</TableCell>
                     </TableRow>
@@ -160,10 +153,9 @@ export default function SummaryView() {
               {colaEnabled && <p className="text-muted-foreground">+ COLA {colaPercent}%: {targetSymbol}{fmt(grandTotalConverted * (colaMultiplier - 1))}</p>}
               {bufferEnabled && <p className="text-muted-foreground">+ Buffer {bufferPercent}%: {targetSymbol}{fmt(afterCola * (bufferMultiplier - 1))}</p>}
               <p className="text-lg font-bold pt-1 border-t">Grand Total: {targetSymbol}{fmt(afterBuffer)}</p>
-              <p className="text-muted-foreground">{totalDays.toFixed(1)} total working days</p>
+              <p className="text-muted-foreground">{totalDays.toFixed(1)} days · {totalHours.toFixed(0)} hours</p>
             </div>
 
-            {/* Currency Rates */}
             {usedCurrencies.length > 1 && (
               <div className="mt-6 pt-4 border-t">
                 <h4 className="text-sm font-semibold mb-2">Exchange Rates Applied (base: EUR)</h4>
