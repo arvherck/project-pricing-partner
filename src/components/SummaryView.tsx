@@ -3,8 +3,8 @@ import { parseISO } from 'date-fns';
 import { Download } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
-import { ResourceCalculation, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, ALL_CURRENCIES, Currency } from '@/lib/types';
-import { fetchECBRates, convertCurrency } from '@/lib/currencyRates';
+import { ResourceCalculation, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, ALL_CURRENCIES, COUNTRY_FLAGS, Currency } from '@/lib/types';
+import { fetchECBRates, convertCurrency, getEurBasedRates } from '@/lib/currencyRates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 
 export default function SummaryView() {
-  const { config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, setTargetCurrency } = useProject();
+  const { config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, setTargetCurrency, programVacationWeeks } = useProject();
 
   const [rates, setRates] = useState<Record<string, number>>({});
 
@@ -27,7 +27,7 @@ export default function SummaryView() {
   const calculations = useMemo(() => {
     if (!startDate || !endDate) return [];
     return resources.map(r => {
-      const calc = calculateResource(r, weeks, rateCard, startDate, endDate);
+      const calc = calculateResource(r, weeks, rateCard, startDate, endDate, programVacationWeeks);
       const localCurrency = COUNTRY_CURRENCY[r.country];
       const convertedPrice = convertCurrency(calc.totalPrice, localCurrency, targetCurrency, rates);
       return {
@@ -38,7 +38,17 @@ export default function SummaryView() {
         convertedPrice,
       };
     });
-  }, [resources, weeks, rateCard, startDate, endDate, targetCurrency, rates]);
+  }, [resources, weeks, rateCard, startDate, endDate, targetCurrency, rates, programVacationWeeks]);
+
+  // Currency rates in use
+  const usedCurrencies = useMemo(() => {
+    const set = new Set<Currency>();
+    resources.forEach(r => set.add(COUNTRY_CURRENCY[r.country]));
+    set.add(targetCurrency);
+    return Array.from(set);
+  }, [resources, targetCurrency]);
+
+  const eurRates = useMemo(() => getEurBasedRates(rates), [rates]);
 
   const grandTotalConverted = calculations.reduce((s, c) => s + c.convertedPrice, 0);
   const totalDays = calculations.reduce((s, c) => s + c.totalWorkingDays, 0);
@@ -99,7 +109,7 @@ export default function SummaryView() {
           <div className="flex items-center gap-2">
             <Label className="text-xs whitespace-nowrap">Target Currency</Label>
             <Select value={targetCurrency} onValueChange={v => setTargetCurrency(v as Currency)}>
-              <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ALL_CURRENCIES.map(c => (
                   <SelectItem key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</SelectItem>
@@ -136,7 +146,7 @@ export default function SummaryView() {
                   return (
                     <TableRow key={c.resourceId}>
                       <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell>{c.country}</TableCell>
+                      <TableCell>{COUNTRY_FLAGS[c.country as keyof typeof COUNTRY_FLAGS]} {c.country}</TableCell>
                       <TableCell className="text-right">{c.totalWorkingDays.toFixed(1)}</TableCell>
                       <TableCell className="text-right">{ls}{fmt(c.totalPrice)}</TableCell>
                       <TableCell className="text-right">{targetSymbol}{fmt(c.convertedPrice)}</TableCell>
@@ -152,6 +162,20 @@ export default function SummaryView() {
               <p className="text-lg font-bold pt-1 border-t">Grand Total: {targetSymbol}{fmt(afterBuffer)}</p>
               <p className="text-muted-foreground">{totalDays.toFixed(1)} total working days</p>
             </div>
+
+            {/* Currency Rates */}
+            {usedCurrencies.length > 1 && (
+              <div className="mt-6 pt-4 border-t">
+                <h4 className="text-sm font-semibold mb-2">Exchange Rates Applied (base: EUR)</h4>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  {usedCurrencies.filter(c => c !== 'EUR').map(c => (
+                    <div key={c} className="rounded border px-2 py-1">
+                      1 EUR = {eurRates[c]?.toFixed(4) ?? '—'} {c} ({CURRENCY_SYMBOLS[c]})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </CardContent>
