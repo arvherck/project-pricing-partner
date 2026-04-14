@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ProjectConfig, Resource, RateCard, Seniority, Country } from '@/lib/types';
+import { ProjectConfig, Resource, RateCard, Currency } from '@/lib/types';
 import { defaultRateCard } from '@/lib/rateCardDefaults';
 
 interface ProjectState {
@@ -11,8 +11,14 @@ interface ProjectState {
   setRateCard: (rc: RateCard) => void;
   colaEnabled: boolean;
   setColaEnabled: (v: boolean) => void;
+  colaPercent: number;
+  setColaPercent: (v: number) => void;
   bufferEnabled: boolean;
   setBufferEnabled: (v: boolean) => void;
+  bufferPercent: number;
+  setBufferPercent: (v: number) => void;
+  targetCurrency: Currency;
+  setTargetCurrency: (c: Currency) => void;
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
@@ -33,7 +39,7 @@ function loadState() {
   return null;
 }
 
-function saveState(state: { config: ProjectConfig; resources: Resource[]; rateCard: RateCard; colaEnabled: boolean; bufferEnabled: boolean }) {
+function saveState(state: any) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -44,14 +50,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [resources, setResources] = useState<Resource[]>(saved?.resources ?? []);
   const [rateCard, setRateCard] = useState<RateCard>(saved?.rateCard ?? defaultRateCard);
   const [colaEnabled, setColaEnabled] = useState(saved?.colaEnabled ?? false);
+  const [colaPercent, setColaPercent] = useState(saved?.colaPercent ?? 2.5);
   const [bufferEnabled, setBufferEnabled] = useState(saved?.bufferEnabled ?? false);
+  const [bufferPercent, setBufferPercent] = useState(saved?.bufferPercent ?? 10);
+  const [targetCurrency, setTargetCurrency] = useState<Currency>(saved?.targetCurrency ?? 'EUR');
 
   useEffect(() => {
-    saveState({ config, resources, rateCard, colaEnabled, bufferEnabled });
-  }, [config, resources, rateCard, colaEnabled, bufferEnabled]);
+    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency });
+  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency]);
 
   return (
-    <ProjectContext.Provider value={{ config, setConfig, resources, setResources, rateCard, setRateCard, colaEnabled, setColaEnabled, bufferEnabled, setBufferEnabled }}>
+    <ProjectContext.Provider value={{
+      config, setConfig, resources, setResources, rateCard, setRateCard,
+      colaEnabled, setColaEnabled, colaPercent, setColaPercent,
+      bufferEnabled, setBufferEnabled, bufferPercent, setBufferPercent,
+      targetCurrency, setTargetCurrency,
+    }}>
       {children}
     </ProjectContext.Provider>
   );

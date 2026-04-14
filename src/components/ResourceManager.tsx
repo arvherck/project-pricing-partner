@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { parseISO } from 'date-fns';
 import { Plus, Trash2 } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
-import { Resource, SENIORITY_LEVELS, COUNTRIES } from '@/lib/types';
+import { Resource, SENIORITY_LEVELS, COUNTRIES, SENIORITY_EXPERIENCE, COUNTRY_CURRENCY, CURRENCY_SYMBOLS } from '@/lib/types';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ export default function ResourceManager() {
     const newResource: Resource = {
       id: crypto.randomUUID(),
       name: '',
-      seniority: 'Mid',
+      seniority: 'Consultant',
       country: 'Netherlands',
       allocationPercent: 100,
       vacationWeeks: [],
@@ -83,7 +83,7 @@ function ResourceCard({
 }: {
   resource: Resource;
   weeks: ReturnType<typeof getProjectWeeks>;
-  rateCard: typeof import('@/lib/types').SENIORITY_LEVELS extends any ? any : never;
+  rateCard: any;
   startDate: Date | null;
   endDate: Date | null;
   onUpdate: (id: string, u: Partial<Resource>) => void;
@@ -94,6 +94,9 @@ function ResourceCard({
     if (!startDate || !endDate) return null;
     return calculateResource(resource, weeks, rateCard, startDate, endDate);
   }, [resource, weeks, rateCard, startDate, endDate]);
+
+  const currency = COUNTRY_CURRENCY[resource.country];
+  const symbol = CURRENCY_SYMBOLS[currency];
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
@@ -107,7 +110,14 @@ function ResourceCard({
             <Label className="text-xs">Seniority</Label>
             <Select value={resource.seniority} onValueChange={v => onUpdate(resource.id, { seniority: v as any })}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>{SENIORITY_LEVELS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {SENIORITY_LEVELS.map(s => (
+                  <SelectItem key={s} value={s}>
+                    <span>{s}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">({SENIORITY_EXPERIENCE[s]})</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
@@ -149,8 +159,8 @@ function ResourceCard({
       {calc && (
         <div className="flex gap-4 text-sm">
           <Badge variant="secondary">{calc.totalWorkingDays.toFixed(1)} working days</Badge>
-          <Badge variant="secondary">€{calc.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Badge>
-          <Badge variant="outline">€{rateCard[resource.seniority][resource.country]}/day</Badge>
+          <Badge variant="secondary">{symbol}{calc.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Badge>
+          <Badge variant="outline">{symbol}{rateCard[resource.seniority]?.[resource.country] ?? 0}/day</Badge>
         </div>
       )}
     </div>
