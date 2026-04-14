@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { ProjectConfig, Resource, RateCard, Currency, Country, COUNTRIES, InvoiceRow } from '@/lib/types';
 import { defaultRateCard } from '@/lib/rateCardDefaults';
 
