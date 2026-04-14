@@ -1,11 +1,11 @@
 import { RateCard } from './types';
 
-// Rates are in local currency per country
+// Rates are in local currency per HOUR per country
 export const defaultRateCard: RateCard = {
-  'Junior Consultant':     { Netherlands: 650,  Belgium: 600,  Germany: 700,  UK: 550,  Sweden: 7000,  Denmark: 5000, Switzerland: 900,  France: 650,  Italy: 550,  Spain: 500,  Portugal: 450,  Poland: 2500, Russia: 50000, USA: 800,  Canada: 900,  Mexico: 12000, India: 35000, China: 4000 },
-  'Consultant':            { Netherlands: 900,  Belgium: 850,  Germany: 950,  UK: 750,  Sweden: 9500,  Denmark: 7000, Switzerland: 1200, France: 900,  Italy: 800,  Spain: 700,  Portugal: 650,  Poland: 3500, Russia: 70000, USA: 1100, Canada: 1250, Mexico: 16000, India: 50000, China: 5500 },
-  'Senior Consultant':     { Netherlands: 1200, Belgium: 1150, Germany: 1250, UK: 1000, Sweden: 12500, Denmark: 9000, Switzerland: 1600, France: 1200, Italy: 1050, Spain: 950,  Portugal: 850,  Poland: 4500, Russia: 90000, USA: 1450, Canada: 1650, Mexico: 22000, India: 70000, China: 7500 },
-  'Manager':               { Netherlands: 1500, Belgium: 1450, Germany: 1550, UK: 1250, Sweden: 15500, Denmark: 11500,Switzerland: 2000, France: 1500, Italy: 1300, Spain: 1200, Portugal: 1050, Poland: 5500, Russia: 110000,USA: 1800, Canada: 2000, Mexico: 28000, India: 90000, China: 9500 },
-  'Sr. Manager':           { Netherlands: 1800, Belgium: 1750, Germany: 1900, UK: 1500, Sweden: 19000, Denmark: 14000,Switzerland: 2500, France: 1800, Italy: 1600, Spain: 1450, Portugal: 1300, Poland: 7000, Russia: 140000,USA: 2200, Canada: 2500, Mexico: 35000, India: 115000,China: 12000 },
-  'Managing Director/VP':  { Netherlands: 2200, Belgium: 2150, Germany: 2300, UK: 1850, Sweden: 23000, Denmark: 17000,Switzerland: 3100, France: 2200, Italy: 2000, Spain: 1800, Portugal: 1600, Poland: 9000, Russia: 180000,USA: 2700, Canada: 3100, Mexico: 45000, India: 150000,China: 15000 },
+  'Junior Consultant':     { Netherlands: 81,  Belgium: 75,  Germany: 88,  UK: 69,  Sweden: 875,  Denmark: 625, Switzerland: 113,  France: 81,  Italy: 69,  Spain: 63,  Portugal: 56,  Poland: 313, Russia: 6250, USA: 100,  Canada: 113,  Mexico: 1500, India: 4375, China: 500 },
+  'Consultant':            { Netherlands: 113, Belgium: 106, Germany: 119, UK: 94,  Sweden: 1188, Denmark: 875, Switzerland: 150, France: 113, Italy: 100, Spain: 88,  Portugal: 81,  Poland: 438, Russia: 8750, USA: 138, Canada: 156, Mexico: 2000, India: 6250, China: 688 },
+  'Senior Consultant':     { Netherlands: 150, Belgium: 144, Germany: 156, UK: 125, Sweden: 1563, Denmark: 1125,Switzerland: 200, France: 150, Italy: 131, Spain: 119, Portugal: 106, Poland: 563, Russia: 11250,USA: 181, Canada: 206, Mexico: 2750, India: 8750, China: 938 },
+  'Manager':               { Netherlands: 188, Belgium: 181, Germany: 194, UK: 156, Sweden: 1938, Denmark: 1438,Switzerland: 250, France: 188, Italy: 163, Spain: 150, Portugal: 131, Poland: 688, Russia: 13750,USA: 225, Canada: 250, Mexico: 3500, India: 11250,China: 1188 },
+  'Sr. Manager':           { Netherlands: 225, Belgium: 219, Germany: 238, UK: 188, Sweden: 2375, Denmark: 1750,Switzerland: 313, France: 225, Italy: 200, Spain: 181, Portugal: 163, Poland: 875, Russia: 17500,USA: 275, Canada: 313, Mexico: 4375, India: 14375,China: 1500 },
+  'Managing Director/VP':  { Netherlands: 275, Belgium: 269, Germany: 288, UK: 231, Sweden: 2875, Denmark: 2125,Switzerland: 388, France: 275, Italy: 250, Spain: 225, Portugal: 200, Poland: 1125,Russia: 22500,USA: 338, Canada: 388, Mexico: 5625, India: 18750,China: 1875 },
 };

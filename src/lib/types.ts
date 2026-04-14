@@ -99,7 +99,15 @@ export interface ProjectWeek {
 
 export interface ResourceCalculation {
   resourceId: string;
-  weeklyBreakdown: { week: number; billableDays: number; price: number }[];
+  weeklyBreakdown: { week: number; billableDays: number; billableHours: number; price: number }[];
   totalWorkingDays: number;
+  totalWorkingHours: number;
   totalPrice: number;
+}
+
+export interface InvoiceRow {
+  id: string;
+  label: string;
+  date: string; // ISO date
+  percentOfTotal: number;
 }

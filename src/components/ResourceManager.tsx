@@ -166,9 +166,9 @@ function ResourceCard({
       </div>
       {calc && (
         <div className="flex gap-4 text-sm">
-          <Badge variant="secondary">{calc.totalWorkingDays.toFixed(1)} working days</Badge>
+          <Badge variant="secondary">{calc.totalWorkingDays.toFixed(1)} days ({calc.totalWorkingHours.toFixed(0)} hrs)</Badge>
           <Badge variant="secondary">{symbol}{calc.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Badge>
-          <Badge variant="outline">{symbol}{rateCard[resource.seniority]?.[resource.country] ?? 0}/day</Badge>
+          <Badge variant="outline">{symbol}{rateCard[resource.seniority]?.[resource.country] ?? 0}/hr</Badge>
         </div>
       )}
     </div>

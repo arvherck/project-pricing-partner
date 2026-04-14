@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ProjectConfig, Resource, RateCard, Currency, COUNTRIES } from '@/lib/types';
+import { ProjectConfig, Resource, RateCard, Currency, Country, COUNTRIES, InvoiceRow } from '@/lib/types';
 import { defaultRateCard } from '@/lib/rateCardDefaults';
 
 interface ProjectState {
@@ -21,10 +21,14 @@ interface ProjectState {
   setTargetCurrency: (c: Currency) => void;
   programVacationWeeks: number[];
   setProgramVacationWeeks: (w: number[]) => void;
+  visibleCountries: Country[];
+  setVisibleCountries: (c: Country[]) => void;
+  invoiceRows: InvoiceRow[];
+  setInvoiceRows: (r: InvoiceRow[]) => void;
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
-const STATE_VERSION = 2; // bump when country/seniority list changes
+const STATE_VERSION = 3;
 
 const ProjectContext = createContext<ProjectState | null>(null);
 
@@ -39,7 +43,6 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // If version mismatch or missing new countries, reset
       if (parsed?._version !== STATE_VERSION) {
         localStorage.removeItem(STORAGE_KEY);
         return null;
@@ -66,10 +69,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [bufferPercent, setBufferPercent] = useState(saved?.bufferPercent ?? 10);
   const [targetCurrency, setTargetCurrency] = useState<Currency>(saved?.targetCurrency ?? 'EUR');
   const [programVacationWeeks, setProgramVacationWeeks] = useState<number[]>(saved?.programVacationWeeks ?? []);
+  const [visibleCountries, setVisibleCountries] = useState<Country[]>(saved?.visibleCountries ?? [...COUNTRIES]);
+  const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>(saved?.invoiceRows ?? []);
 
   useEffect(() => {
-    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks });
-  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks]);
+    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, visibleCountries, invoiceRows });
+  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, visibleCountries, invoiceRows]);
 
   return (
     <ProjectContext.Provider value={{
@@ -78,6 +83,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       bufferEnabled, setBufferEnabled, bufferPercent, setBufferPercent,
       targetCurrency, setTargetCurrency,
       programVacationWeeks, setProgramVacationWeeks,
+      visibleCountries, setVisibleCountries,
+      invoiceRows, setInvoiceRows,
     }}>
       {children}
     </ProjectContext.Provider>
