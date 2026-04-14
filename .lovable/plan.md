@@ -1,38 +1,31 @@
 
 
-# Fix Currency Recalculation, Add Currency Labels, and Date-Based Vacations
-
-## Problem Summary
-1. **Custom exchange rates don't propagate**: `mergeRates` only overwrites the `EUR_X` key, but `convertCurrency` looks up cross-rate keys like `SEK_EUR`, `GBP_USD`, etc. These aren't recalculated from the updated EUR base.
-2. **PriceAdjustments lacks currency context**: The `grandTotal` passed to it is a sum of raw local-currency prices (not converted), and no currency symbol is shown.
-3. **Vacation UX is week-checkbox-based**: Users want to pick specific dates (possibly non-contiguous) rather than toggling week indices.
+# Fix Invoicing "% Work Delivered" and Vacation Date UX
 
 ## Changes
 
-### 1. Fix currency rate propagation (`src/lib/currencyRates.ts`)
-- Change `mergeRates` to: extract EUR-based rates from fetched, overlay custom `EUR_X` overrides, then **rebuild all cross rates** via `buildCrossRates`. This ensures changing `EUR_SEK` also updates `SEK_EUR`, `SEK_GBP`, etc.
+### 1. Invoicing Schedule: Fix "% Work Delivered" and cap total at 100%
 
-### 2. Fix grandTotal in Index.tsx to use converted prices
-- In `PricingCalculator`, fetch rates and convert each resource's local price to `targetCurrency` before summing for `grandTotal`
-- Pass `targetCurrency` info to `PriceAdjustments`
+**Problem**: "% Work Delivered" currently equals "% of Total" (it's just `workingDays / totalWorkingDays * 100`, which mirrors the input). It should reflect cumulative time elapsed up to each invoice date relative to project duration.
 
-### 3. Add currency symbol to PriceAdjustments (`src/components/PriceAdjustments.tsx`)
-- Accept `targetCurrency` as a prop (or read from context)
-- Show the currency symbol in all displayed amounts (COLA preview, buffer preview, adjusted grand total)
+**Fix in `src/components/InvoicingSchedule.tsx`**:
+- For each invoice row (sorted by date), calculate how many working days have elapsed from project start to that invoice's date, divided by total project working days. This gives the cumulative "% of work delivered" at each milestone.
+- Use `eachDayOfInterval` from project start to invoice date, filtering out weekends, holidays, and program vacation weeks, to count elapsed working days.
+- Cap "% of Total" input: when user types a value, clamp it so that the sum of all rows never exceeds 100%. Show a warning or auto-clamp to `100 - sumOfOtherRows`.
+- Show the total row's "% of Total" in red if it exceeds 100%.
 
-### 4. Date-based vacations per resource
-- Change `Resource.vacationWeeks: number[]` to `Resource.vacationDates: string[]` (array of ISO date strings) in `src/lib/types.ts`
-- Update `src/lib/calculations.ts`: instead of checking if a week index is in vacationWeeks, check if each working day falls on a vacation date
-- Update `ResourceManager.tsx`: replace the week-checkbox popover with a multi-date calendar picker where users can click individual dates
-- Keep `programVacationWeeks` as week-based (program-level shutdowns are naturally full weeks)
-- Bump `STATE_VERSION` in context
+### 2. Resource Vacation Calendar: Disable program vacation dates
 
-### Files to Edit
-- `src/lib/currencyRates.ts` — fix `mergeRates` to rebuild cross rates
-- `src/lib/types.ts` — change `vacationWeeks` to `vacationDates: string[]`
-- `src/lib/calculations.ts` — update vacation logic to use dates instead of week indices
-- `src/context/ProjectContext.tsx` — bump version, update default resource shape
-- `src/pages/Index.tsx` — compute `grandTotal` using converted prices, pass currency to PriceAdjustments
-- `src/components/PriceAdjustments.tsx` — show target currency symbol everywhere
-- `src/components/ResourceManager.tsx` — replace week checkboxes with a date-picker calendar for vacation dates
+**Problem**: Users can currently select dates that fall within program-level vacation weeks, leading to double-counting.
+
+**Fix in `src/components/ResourceManager.tsx`**:
+- Pass `programVacationWeeks` and `weeks` (project weeks) to `ResourceCard`.
+- Compute a set of disabled dates: all weekdays that fall within program vacation weeks.
+- Pass these as `disabled` dates to the `Calendar` component so they appear greyed out and unclickable.
+- Add a small legend/note below the calendar: "Greyed-out dates are program vacation weeks."
+- If a resource already has vacation dates that overlap with program vacation weeks (from before), filter them out on render.
+
+## Files to Edit
+- `src/components/InvoicingSchedule.tsx` — calculate cumulative work delivered based on elapsed working days; cap % of total at 100%
+- `src/components/ResourceManager.tsx` — disable program vacation week dates in calendar, add legend
 
