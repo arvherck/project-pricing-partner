@@ -34,7 +34,19 @@ export function useProject() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Validate rateCard has current seniority keys; if not, discard it
+      if (parsed?.rateCard && !parsed.rateCard['Junior Consultant']) {
+        parsed.rateCard = null;
+      }
+      // Validate resources have current seniority values
+      if (parsed?.resources) {
+        const validSeniorities = ['Junior Consultant', 'Consultant', 'Senior Consultant', 'Manager', 'Sr. Manager', 'Managing Director/VP'];
+        parsed.resources = parsed.resources.filter((r: any) => validSeniorities.includes(r.seniority));
+      }
+      return parsed;
+    }
   } catch {}
   return null;
 }
