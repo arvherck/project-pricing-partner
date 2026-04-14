@@ -1,8 +1,8 @@
 export type Seniority = 'Junior Consultant' | 'Consultant' | 'Senior Consultant' | 'Manager' | 'Sr. Manager' | 'Managing Director/VP';
-export type Country = 'Netherlands' | 'Belgium' | 'Germany' | 'UK' | 'Sweden' | 'USA';
+export type Country = 'Netherlands' | 'Belgium' | 'Germany' | 'UK' | 'Sweden' | 'Denmark' | 'Switzerland' | 'France' | 'Italy' | 'Spain' | 'Portugal' | 'Poland' | 'Russia' | 'USA' | 'Canada' | 'Mexico' | 'India' | 'China';
 
 export const SENIORITY_LEVELS: Seniority[] = ['Junior Consultant', 'Consultant', 'Senior Consultant', 'Manager', 'Sr. Manager', 'Managing Director/VP'];
-export const COUNTRIES: Country[] = ['Netherlands', 'Belgium', 'Germany', 'UK', 'Sweden', 'USA'];
+export const COUNTRIES: Country[] = ['Netherlands', 'Belgium', 'Germany', 'UK', 'Sweden', 'Denmark', 'Switzerland', 'France', 'Italy', 'Spain', 'Portugal', 'Poland', 'Russia', 'USA', 'Canada', 'Mexico', 'India', 'China'];
 
 export const SENIORITY_EXPERIENCE: Record<Seniority, string> = {
   'Junior Consultant': '0-23 months',
@@ -13,15 +13,27 @@ export const SENIORITY_EXPERIENCE: Record<Seniority, string> = {
   'Managing Director/VP': '180+ months',
 };
 
-export type Currency = 'EUR' | 'GBP' | 'SEK' | 'USD';
+export type Currency = 'EUR' | 'GBP' | 'SEK' | 'USD' | 'DKK' | 'CHF' | 'RUB' | 'CAD' | 'MXN' | 'INR' | 'CNY';
 
 export const COUNTRY_CURRENCY: Record<Country, Currency> = {
   Netherlands: 'EUR',
   Belgium: 'EUR',
   Germany: 'EUR',
+  France: 'EUR',
+  Italy: 'EUR',
+  Spain: 'EUR',
+  Portugal: 'EUR',
+  Poland: 'EUR',
   UK: 'GBP',
   Sweden: 'SEK',
+  Denmark: 'DKK',
+  Switzerland: 'CHF',
+  Russia: 'RUB',
   USA: 'USD',
+  Canada: 'CAD',
+  Mexico: 'MXN',
+  India: 'INR',
+  China: 'CNY',
 };
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -29,9 +41,37 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   GBP: '£',
   SEK: 'kr',
   USD: '$',
+  DKK: 'kr',
+  CHF: 'CHF',
+  RUB: '₽',
+  CAD: 'C$',
+  MXN: 'MX$',
+  INR: '₹',
+  CNY: '¥',
 };
 
-export const ALL_CURRENCIES: Currency[] = ['EUR', 'GBP', 'SEK', 'USD'];
+export const ALL_CURRENCIES: Currency[] = ['EUR', 'GBP', 'SEK', 'USD', 'DKK', 'CHF', 'RUB', 'CAD', 'MXN', 'INR', 'CNY'];
+
+export const COUNTRY_FLAGS: Record<Country, string> = {
+  Netherlands: '🇳🇱',
+  Belgium: '🇧🇪',
+  Germany: '🇩🇪',
+  UK: '🇬🇧',
+  Sweden: '🇸🇪',
+  Denmark: '🇩🇰',
+  Switzerland: '🇨🇭',
+  France: '🇫🇷',
+  Italy: '🇮🇹',
+  Spain: '🇪🇸',
+  Portugal: '🇵🇹',
+  Poland: '🇵🇱',
+  Russia: '🇷🇺',
+  USA: '🇺🇸',
+  Canada: '🇨🇦',
+  Mexico: '🇲🇽',
+  India: '🇮🇳',
+  China: '🇨🇳',
+};
 
 export type RateCard = Record<Seniority, Record<Country, number>>;
 
