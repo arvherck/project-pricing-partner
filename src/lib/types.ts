@@ -81,7 +81,7 @@ export interface Resource {
   seniority: Seniority;
   country: Country;
   allocationPercent: number;
-  vacationWeeks: number[]; // week indices (0-based)
+  vacationDates: string[]; // ISO date strings for individual vacation days
 }
 
 export interface ProjectConfig {

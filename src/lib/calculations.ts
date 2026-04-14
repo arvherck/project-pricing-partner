@@ -1,4 +1,4 @@
-import { startOfWeek, endOfWeek, eachWeekOfInterval, format, differenceInCalendarWeeks, eachDayOfInterval, isWeekend } from 'date-fns';
+import { endOfWeek, eachWeekOfInterval, format, differenceInCalendarWeeks, eachDayOfInterval, isWeekend } from 'date-fns';
 import { Resource, RateCard, ProjectWeek, ResourceCalculation } from './types';
 import { getHolidaysInRange, isHoliday } from './holidays';
 
@@ -36,15 +36,25 @@ export function calculateResource(
   const holidays = getHolidaysInRange(resource.country, projectStart, projectEnd);
   const allocation = resource.allocationPercent / 100;
 
-  const allVacationWeeks = new Set([...resource.vacationWeeks, ...programVacationWeeks]);
+  // Build a Set of vacation date strings for fast lookup
+  const vacationDateSet = new Set(resource.vacationDates ?? []);
+  const programVacSet = new Set(programVacationWeeks);
 
   const weeklyBreakdown = weeks.map((week) => {
-    if (allVacationWeeks.has(week.index)) {
+    // Program-level vacation weeks still skip entire weeks
+    if (programVacSet.has(week.index)) {
       return { week: week.index, billableDays: 0, billableHours: 0, price: 0 };
     }
 
     const days = eachDayOfInterval({ start: week.startDate, end: week.endDate });
-    const workingDays = days.filter(d => !isWeekend(d) && !isHoliday(d, holidays));
+    const workingDays = days.filter(d => {
+      if (isWeekend(d)) return false;
+      if (isHoliday(d, holidays)) return false;
+      // Check individual vacation dates
+      const iso = format(d, 'yyyy-MM-dd');
+      if (vacationDateSet.has(iso)) return false;
+      return true;
+    });
     const billableDays = workingDays.length * allocation;
     const billableHours = billableDays * HOURS_PER_DAY;
     const price = billableHours * hourlyRate;

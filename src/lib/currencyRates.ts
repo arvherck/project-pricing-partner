@@ -38,8 +38,6 @@ export async function fetchECBRates(): Promise<Record<string, number>> {
     return cachedRates;
   }
 
-  const symbols = ALL_CUR.filter(c => c !== 'EUR').join(',');
-
   try {
     const res = await fetch(`https://open.er-api.com/v6/latest/EUR`);
     if (!res.ok) throw new Error('Failed');
@@ -56,6 +54,7 @@ export async function fetchECBRates(): Promise<Record<string, number>> {
   } catch {}
 
   try {
+    const symbols = ALL_CUR.filter(c => c !== 'EUR').join(',');
     const res = await fetch(`https://api.exchangerate.host/latest?base=EUR&symbols=${symbols}`);
     if (res.ok) {
       const data = await res.json();
@@ -82,15 +81,30 @@ export function getEurBasedRates(rates: Record<string, number>): Record<Currency
   return eurRates;
 }
 
+/**
+ * Merge custom EUR-based overrides into fetched rates by rebuilding all cross rates.
+ * This ensures that changing e.g. EUR_SEK also updates SEK_EUR, SEK_GBP, etc.
+ */
 export function mergeRates(
   fetched: Record<string, number>,
   custom: Record<string, number | null>,
 ): Record<string, number> {
-  const merged = { ...fetched };
-  for (const [key, val] of Object.entries(custom)) {
-    if (val != null && val > 0) merged[key] = val;
+  // Extract EUR-based rates from fetched
+  const eurRates: Record<Currency, number> = { EUR: 1 } as any;
+  for (const c of ALL_CUR) {
+    eurRates[c] = fetched[`EUR_${c}`] ?? FALLBACK_EUR[c];
   }
-  return merged;
+  // Overlay custom EUR_X overrides
+  for (const [key, val] of Object.entries(custom)) {
+    if (val != null && val > 0 && key.startsWith('EUR_')) {
+      const cur = key.replace('EUR_', '') as Currency;
+      if (ALL_CUR.includes(cur)) {
+        eurRates[cur] = val;
+      }
+    }
+  }
+  // Rebuild ALL cross rates from the updated EUR base
+  return buildCrossRates(eurRates);
 }
 
 export function convertCurrency(

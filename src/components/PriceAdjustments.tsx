@@ -1,5 +1,6 @@
 import React from 'react';
 import { useProject } from '@/context/ProjectContext';
+import { CURRENCY_SYMBOLS } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -9,14 +10,16 @@ export default function PriceAdjustments({ grandTotal }: { grandTotal: number })
   const {
     colaEnabled, setColaEnabled, colaPercent, setColaPercent,
     bufferEnabled, setBufferEnabled, bufferPercent, setBufferPercent,
+    targetCurrency,
   } = useProject();
 
+  const symbol = CURRENCY_SYMBOLS[targetCurrency];
   const colaMultiplier = 1 + colaPercent / 100;
   const bufferMultiplier = 1 + bufferPercent / 100;
   const afterCola = colaEnabled ? grandTotal * colaMultiplier : grandTotal;
   const afterBuffer = bufferEnabled ? afterCola * bufferMultiplier : afterCola;
 
-  const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmt = (n: number) => `${symbol}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
   return (
     <Card>
