@@ -1,16 +1,50 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useMemo } from 'react';
+import { parseISO } from 'date-fns';
+import { ProjectProvider, useProject } from '@/context/ProjectContext';
+import ProjectSetup from '@/components/ProjectSetup';
+import RateCardEditor from '@/components/RateCardEditor';
+import ResourceManager from '@/components/ResourceManager';
+import PriceAdjustments from '@/components/PriceAdjustments';
+import SummaryView from '@/components/SummaryView';
+import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+function PricingCalculator() {
+  const { config, resources, rateCard } = useProject();
+
+  const startDate = config.startDate ? parseISO(config.startDate) : null;
+  const endDate = config.endDate ? parseISO(config.endDate) : null;
+  const weeks = startDate && endDate ? getProjectWeeks(startDate, endDate) : [];
+
+  const grandTotal = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return resources.reduce((sum, r) => sum + calculateResource(r, weeks, rateCard, startDate, endDate).totalPrice, 0);
+  }, [resources, weeks, rateCard, startDate, endDate]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto flex items-center justify-between px-4 py-4">
+          <div>
+            <h1 className="text-xl font-bold">Project Pricing Calculator</h1>
+            <p className="text-sm text-muted-foreground">Consulting project cost estimation</p>
+          </div>
+        </div>
+      </header>
+      <main className="container mx-auto space-y-6 px-4 py-6">
+        <ProjectSetup />
+        <RateCardEditor />
+        <ResourceManager />
+        <PriceAdjustments grandTotal={grandTotal} />
+        <SummaryView />
+      </main>
     </div>
   );
-};
+}
 
-const Index = PlaceholderIndex;
-
-export default Index;
+export default function Index() {
+  return (
+    <ProjectProvider>
+      <PricingCalculator />
+    </ProjectProvider>
+  );
+}
