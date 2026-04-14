@@ -1,57 +1,64 @@
 
 
-# Project Pricing Calculator for Consulting Projects
+# Expand Countries, Add Flags, Transpose Rate Card, Program Vacation, Holiday Display, Currency Rates
 
 ## Overview
-A single-page application for calculating consulting project costs based on resources, seniority-based rate cards, country-specific public holidays, and adjustable price buffers.
+Six enhancements to the pricing calculator: expand to 17 countries with flags, transpose the rate card, add program-level vacation, display public holidays, show currency rates, and expand currency support.
 
-## Pages & Layout
-One main page with a clean, professional layout using a tabbed or sectioned vertical flow:
+## Changes
 
-### Section 1: Project Setup
-- Input fields for project name, start date (datepicker), and end date (datepicker)
-- Auto-calculated display of total project weeks
+### 1. Expand Countries & Currencies (`src/lib/types.ts`)
+- Add all 17 countries: Netherlands, Sweden, Denmark, Switzerland, UK, France, Italy, Spain, Portugal, Poland, Belgium, Germany, Russia, US, Canada, Mexico, India, China
+- Add currencies: DKK, CHF, RUB, CAD, MXN, INR, CNY
+- Update `COUNTRY_CURRENCY`, `CURRENCY_SYMBOLS`, `ALL_CURRENCIES`
+- Add a `COUNTRY_FLAGS` map using emoji flags (🇳🇱, 🇸🇪, 🇩🇰, 🇨🇭, 🇬🇧, 🇫🇷, 🇮🇹, 🇪🇸, 🇵🇹, 🇵🇱, 🇧🇪, 🇩🇪, 🇷🇺, 🇺🇸, 🇨🇦, 🇲🇽, 🇮🇳, 🇨🇳)
 
-### Section 2: Rate Card
-- Editable table: rows = seniority levels (Junior, Mid, Senior, Principal, Partner), columns = countries (Netherlands, Belgium, Germany, UK, Sweden, USA)
-- Cells show daily rates in EUR, editable inline
-- Sensible defaults pre-filled
+### 2. Expand Holidays (`src/lib/holidays.ts`)
+- Add holiday definitions for Denmark, Switzerland, France, Italy, Spain, Portugal, Poland, Russia, Canada, Mexico, India, China
+- Export a `getHolidayName` function that returns `{ date, name }[]` so holidays can be displayed by name (e.g., "Midsommar", "Bastille Day")
 
-### Section 3: Resources
-- "Add Resource" button to add team members
-- Each resource card/row includes:
-  - Name/role text input
-  - Seniority dropdown
-  - Country dropdown
-  - Allocation % slider or input (0–100%)
-  - Vacation week selector (multi-select from project week list, with week number + date range labels)
-  - Calculated fields: working days, total cost
-- Remove resource button
+### 3. Expand Default Rate Card (`src/lib/rateCardDefaults.ts`)
+- Add default daily rates for all 17 countries in their local currencies
 
-### Section 4: Price Adjustments
-- Toggle switches for:
-  - COLA uplift (2.5%) with before/after display
-  - Fixed price buffer (10%) with before/after display
+### 4. Expand Currency Rates (`src/lib/currencyRates.ts`)
+- Add DKK, CHF, RUB, CAD, MXN, INR, CNY to fallback rates and fetch logic
 
-### Section 5: Summary
-- Summary table: resource name, role, country, working days, total cost
-- Grand total (pre-adjustments and post-adjustments)
-- Total project working days across all resources
-- Export buttons for CSV and PDF download
+### 5. Transpose Rate Card (`src/components/RateCardEditor.tsx`)
+- Rows = countries (with flag emoji), Columns = seniority levels
+- Each cell shows the rate in the country's local currency
 
-## Key Logic
-- **Public holidays**: Built-in holiday data for NL, BE, DE, UK, SE, US (including Easter-based movable holidays) calculated for any year in the project range
-- **Working days per resource**: For each week, calculate billable days = 5 × allocation% minus any public holidays falling in that week; skip vacation weeks entirely
-- **Weekly price**: billable days in that week × daily rate
-- **Total price**: sum of all weekly prices per resource
-- **Adjustments**: applied on top of grand total, stackable
+### 6. Program-Level Vacation (`src/context/ProjectContext.tsx`, `src/components/ProjectSetup.tsx` or new `ProgramVacation` component)
+- Add `programVacationWeeks: number[]` to context/state
+- Add a vacation week selector in the Project Setup or a dedicated section below it
+- In `calculations.ts`, merge program vacation weeks with per-resource vacation weeks when computing billable days
 
-## Data Persistence
-- All inputs saved to localStorage, restored on page reload
+### 7. Public Holiday Display (new `src/components/HolidayDisplay.tsx`)
+- Show a collapsible section listing public holidays per country within the project date range
+- Display holiday name and date, grouped by country with flag
+- Only show countries that are used by at least one resource
 
-## Tech
-- React + TypeScript + Tailwind + shadcn/ui components
-- date-fns for date calculations
-- jsPDF for PDF export, native CSV generation
-- No backend needed — all client-side
+### 8. Currency Rates Display (new section or component in Summary)
+- Show a small table of applied exchange rates (base EUR) for all currencies in use
+- Display the rates fetched from the API (or fallback rates)
+
+### 9. Update Resource Manager & Summary
+- Show flag emoji next to country in resource cards, summary table, and dropdowns
+- Ensure the country dropdown includes all 17 countries with flags
+
+### 10. LocalStorage Migration
+- Clear/reset saved state when country list changes (detect via validation in `loadState`)
+
+## Files to Create/Edit
+- `src/lib/types.ts` — expand types and constants
+- `src/lib/holidays.ts` — add 11 new country holiday sets + named holidays
+- `src/lib/rateCardDefaults.ts` — expand defaults
+- `src/lib/currencyRates.ts` — expand currencies
+- `src/lib/calculations.ts` — merge program vacation
+- `src/context/ProjectContext.tsx` — add `programVacationWeeks` state
+- `src/components/RateCardEditor.tsx` — transpose table, add flags
+- `src/components/ProjectSetup.tsx` — add program vacation selector
+- `src/components/ResourceManager.tsx` — add flags to dropdowns
+- `src/components/SummaryView.tsx` — add flags, currency rates display
+- `src/components/HolidayDisplay.tsx` — new component for holiday list
+- `src/pages/Index.tsx` — add HolidayDisplay component
 
