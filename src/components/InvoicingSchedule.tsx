@@ -3,8 +3,8 @@ import { parseISO, format, isWithinInterval, eachDayOfInterval, isWeekend } from
 import { Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
-import { InvoiceRow, CURRENCY_SYMBOLS, COUNTRY_CURRENCY, ALL_CURRENCIES, Currency } from '@/lib/types';
-import { fetchECBRates, convertCurrency } from '@/lib/currencyRates';
+import { InvoiceRow, CURRENCY_SYMBOLS, COUNTRY_CURRENCY } from '@/lib/types';
+import { fetchECBRates, convertCurrency, mergeRates } from '@/lib/currencyRates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';

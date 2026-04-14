@@ -25,10 +25,12 @@ interface ProjectState {
   setVisibleCountries: (c: Country[]) => void;
   invoiceRows: InvoiceRow[];
   setInvoiceRows: (r: InvoiceRow[]) => void;
+  customRates: Record<string, number | null>;
+  setCustomRates: (r: Record<string, number | null>) => void;
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
-const STATE_VERSION = 4;
+const STATE_VERSION = 5;
 
 const ProjectContext = createContext<ProjectState | null>(null);
 
@@ -71,10 +73,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [programVacationWeeks, setProgramVacationWeeks] = useState<number[]>(saved?.programVacationWeeks ?? []);
   const [visibleCountries, setVisibleCountries] = useState<Country[]>(saved?.visibleCountries ?? [...COUNTRIES]);
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>(saved?.invoiceRows ?? []);
+  const [customRates, setCustomRates] = useState<Record<string, number | null>>(saved?.customRates ?? {});
 
   useEffect(() => {
-    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, visibleCountries, invoiceRows });
-  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, visibleCountries, invoiceRows]);
+    saveState({ config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, visibleCountries, invoiceRows, customRates });
+  }, [config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, targetCurrency, programVacationWeeks, visibleCountries, invoiceRows, customRates]);
 
   return (
     <ProjectContext.Provider value={{
@@ -85,6 +88,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       programVacationWeeks, setProgramVacationWeeks,
       visibleCountries, setVisibleCountries,
       invoiceRows, setInvoiceRows,
+      customRates, setCustomRates,
     }}>
       {children}
     </ProjectContext.Provider>
