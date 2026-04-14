@@ -28,7 +28,7 @@ interface ProjectState {
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
-const STATE_VERSION = 3;
+const STATE_VERSION = 4;
 
 const ProjectContext = createContext<ProjectState | null>(null);
 
