@@ -16,11 +16,12 @@ import { cn } from '@/lib/utils';
 export default function InvoicingSchedule() {
   const {
     config, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent,
-    targetCurrency, programVacationWeeks, invoiceRows, setInvoiceRows,
+    targetCurrency, programVacationWeeks, invoiceRows, setInvoiceRows, customRates,
   } = useProject();
 
-  const [rates, setRates] = useState<Record<string, number>>({});
-  useEffect(() => { fetchECBRates().then(setRates); }, []);
+  const [fetchedRates, setFetchedRates] = useState<Record<string, number>>({});
+  useEffect(() => { fetchECBRates().then(setFetchedRates); }, []);
+  const rates = useMemo(() => mergeRates(fetchedRates, customRates), [fetchedRates, customRates]);
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
   const endDate = config.endDate ? parseISO(config.endDate) : null;
