@@ -1,42 +1,41 @@
 
 
-# Rate Card Per Hour, Country Visibility, Weekly Breakdown, Invoicing Schedule
+# Fix Currency Consistency and Add Editable Rates
+
+## Problem
+1. The Weekly Breakdown sums costs in mixed currencies (e.g., EUR + SEK) without converting — the "Total" column is nonsensical when resources span multiple currencies.
+2. The target/invoicing currency selector is buried in the Summary section — it should be set upfront in Project Setup.
+3. Users cannot manually adjust exchange rates.
 
 ## Changes
 
-### 1. Rate card per hour (not per day)
-- Update `RateCardEditor` title to "Rate Card (per hour, local currency)"
-- Update `rateCardDefaults.ts` values to hourly rates (divide current daily rates by 8)
-- Update `calculations.ts`: change `billableDays * dailyRate` to `billableHours * hourlyRate` where billableHours = billableDays * 8
-- Rename variables/labels from "daily rate" to "hourly rate" across types and UI
+### 1. Move Target Currency to Project Setup (`src/components/ProjectSetup.tsx`)
+- Add a "Project Currency" dropdown next to Project Name / dates
+- This uses the existing `targetCurrency` / `setTargetCurrency` from context
+- Remove the currency selector from `SummaryView.tsx` header (it stays read-only there, showing the chosen currency)
 
-### 2. Show/hide countries in rate card
-- Add a `visibleCountries: Country[]` state to `ProjectContext` (default: all countries), persisted in localStorage
-- Add a multi-select checkbox dropdown in `RateCardEditor` header to toggle country visibility
-- Filter the rate card table rows by `visibleCountries`
+### 2. Weekly Breakdown: Convert all costs to target currency (`src/components/WeeklyBreakdown.tsx`)
+- Fetch exchange rates (same `fetchECBRates` call)
+- Read `targetCurrency` from context
+- For each resource's weekly cost, convert from `COUNTRY_CURRENCY[resource.country]` to `targetCurrency` using `convertCurrency()`
+- Display the target currency symbol in headers and totals instead of each resource's local currency
+- The "Total" column now correctly sums converted amounts
 
-### 3. Weekly breakdown
-- New `WeeklyBreakdown` component showing a table with columns: Week label, then one sub-column per resource showing billable days and cost that week
-- Placed between Resources and Holiday Display sections
-- Includes row totals per week and column totals per resource
+### 3. Editable Exchange Rates (`src/context/ProjectContext.tsx`, new UI in `SummaryView.tsx`)
+- Add `customRates: Record<string, number | null>` to context (keyed like `EUR_SEK`), persisted in localStorage
+- When a custom rate is set, it overrides the fetched rate
+- In `SummaryView.tsx` exchange rates section, make each rate an editable input field with a "Reset to API" button
+- Pass merged rates (custom overrides on top of fetched) through to all components that use `convertCurrency`
+- Create a helper in context or a hook that provides the final merged rates, so `WeeklyBreakdown`, `SummaryView`, `InvoicingSchedule`, and `PriceAdjustments` all use the same source
 
-### 4. Invoicing schedule
-- New `InvoicingSchedule` component with an editable table matching the uploaded reference image
-- Columns: Label (optional, e.g. "Start"), Invoicing Date (date picker), % of Total, Amount (auto-calculated from grand total × %), Working Days (auto-calculated from project data proportionally), Percentage of work delivered (auto-calculated or editable)
-- "Add row" / "Remove row" buttons
-- A totals row at the bottom summing % and Amount
-- State stored in `ProjectContext` as `invoiceRows: { label: string, date: string, percentOfTotal: number }[]`
-- Amount = afterBuffer (grand total post-adjustments) × percentOfTotal
-- Working days distributed proportionally across invoice periods based on calendar weeks falling in each period
+### 4. Update InvoicingSchedule (`src/components/InvoicingSchedule.tsx`)
+- Ensure it also uses the target currency and converted grand total (it likely already does via its own calculation, but verify consistency)
 
-### Files to edit
-- `src/lib/rateCardDefaults.ts` — divide rates by 8
-- `src/lib/types.ts` — add `InvoiceRow` interface
-- `src/lib/calculations.ts` — multiply billableDays by 8 for hours, compute price as hours × hourlyRate
-- `src/context/ProjectContext.tsx` — add `visibleCountries`, `invoiceRows` state
-- `src/components/RateCardEditor.tsx` — update title, add country visibility toggle
-- `src/components/SummaryView.tsx` — update "daily" labels to "hourly"
-- `src/components/WeeklyBreakdown.tsx` — new component
-- `src/components/InvoicingSchedule.tsx` — new component
-- `src/pages/Index.tsx` — add new components
+## Files to Edit
+- `src/context/ProjectContext.tsx` — add `customRates` state, bump state version
+- `src/components/ProjectSetup.tsx` — add target currency selector
+- `src/components/WeeklyBreakdown.tsx` — convert costs to target currency
+- `src/components/SummaryView.tsx` — make exchange rates editable, remove currency selector from header
+- `src/components/InvoicingSchedule.tsx` — ensure target currency consistency
+- `src/lib/currencyRates.ts` — add a `mergeRates` helper to overlay custom rates on fetched rates
 
