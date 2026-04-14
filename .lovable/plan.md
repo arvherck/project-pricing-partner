@@ -1,41 +1,38 @@
 
 
-# Fix Currency Consistency and Add Editable Rates
+# Fix Currency Recalculation, Add Currency Labels, and Date-Based Vacations
 
-## Problem
-1. The Weekly Breakdown sums costs in mixed currencies (e.g., EUR + SEK) without converting — the "Total" column is nonsensical when resources span multiple currencies.
-2. The target/invoicing currency selector is buried in the Summary section — it should be set upfront in Project Setup.
-3. Users cannot manually adjust exchange rates.
+## Problem Summary
+1. **Custom exchange rates don't propagate**: `mergeRates` only overwrites the `EUR_X` key, but `convertCurrency` looks up cross-rate keys like `SEK_EUR`, `GBP_USD`, etc. These aren't recalculated from the updated EUR base.
+2. **PriceAdjustments lacks currency context**: The `grandTotal` passed to it is a sum of raw local-currency prices (not converted), and no currency symbol is shown.
+3. **Vacation UX is week-checkbox-based**: Users want to pick specific dates (possibly non-contiguous) rather than toggling week indices.
 
 ## Changes
 
-### 1. Move Target Currency to Project Setup (`src/components/ProjectSetup.tsx`)
-- Add a "Project Currency" dropdown next to Project Name / dates
-- This uses the existing `targetCurrency` / `setTargetCurrency` from context
-- Remove the currency selector from `SummaryView.tsx` header (it stays read-only there, showing the chosen currency)
+### 1. Fix currency rate propagation (`src/lib/currencyRates.ts`)
+- Change `mergeRates` to: extract EUR-based rates from fetched, overlay custom `EUR_X` overrides, then **rebuild all cross rates** via `buildCrossRates`. This ensures changing `EUR_SEK` also updates `SEK_EUR`, `SEK_GBP`, etc.
 
-### 2. Weekly Breakdown: Convert all costs to target currency (`src/components/WeeklyBreakdown.tsx`)
-- Fetch exchange rates (same `fetchECBRates` call)
-- Read `targetCurrency` from context
-- For each resource's weekly cost, convert from `COUNTRY_CURRENCY[resource.country]` to `targetCurrency` using `convertCurrency()`
-- Display the target currency symbol in headers and totals instead of each resource's local currency
-- The "Total" column now correctly sums converted amounts
+### 2. Fix grandTotal in Index.tsx to use converted prices
+- In `PricingCalculator`, fetch rates and convert each resource's local price to `targetCurrency` before summing for `grandTotal`
+- Pass `targetCurrency` info to `PriceAdjustments`
 
-### 3. Editable Exchange Rates (`src/context/ProjectContext.tsx`, new UI in `SummaryView.tsx`)
-- Add `customRates: Record<string, number | null>` to context (keyed like `EUR_SEK`), persisted in localStorage
-- When a custom rate is set, it overrides the fetched rate
-- In `SummaryView.tsx` exchange rates section, make each rate an editable input field with a "Reset to API" button
-- Pass merged rates (custom overrides on top of fetched) through to all components that use `convertCurrency`
-- Create a helper in context or a hook that provides the final merged rates, so `WeeklyBreakdown`, `SummaryView`, `InvoicingSchedule`, and `PriceAdjustments` all use the same source
+### 3. Add currency symbol to PriceAdjustments (`src/components/PriceAdjustments.tsx`)
+- Accept `targetCurrency` as a prop (or read from context)
+- Show the currency symbol in all displayed amounts (COLA preview, buffer preview, adjusted grand total)
 
-### 4. Update InvoicingSchedule (`src/components/InvoicingSchedule.tsx`)
-- Ensure it also uses the target currency and converted grand total (it likely already does via its own calculation, but verify consistency)
+### 4. Date-based vacations per resource
+- Change `Resource.vacationWeeks: number[]` to `Resource.vacationDates: string[]` (array of ISO date strings) in `src/lib/types.ts`
+- Update `src/lib/calculations.ts`: instead of checking if a week index is in vacationWeeks, check if each working day falls on a vacation date
+- Update `ResourceManager.tsx`: replace the week-checkbox popover with a multi-date calendar picker where users can click individual dates
+- Keep `programVacationWeeks` as week-based (program-level shutdowns are naturally full weeks)
+- Bump `STATE_VERSION` in context
 
-## Files to Edit
-- `src/context/ProjectContext.tsx` — add `customRates` state, bump state version
-- `src/components/ProjectSetup.tsx` — add target currency selector
-- `src/components/WeeklyBreakdown.tsx` — convert costs to target currency
-- `src/components/SummaryView.tsx` — make exchange rates editable, remove currency selector from header
-- `src/components/InvoicingSchedule.tsx` — ensure target currency consistency
-- `src/lib/currencyRates.ts` — add a `mergeRates` helper to overlay custom rates on fetched rates
+### Files to Edit
+- `src/lib/currencyRates.ts` — fix `mergeRates` to rebuild cross rates
+- `src/lib/types.ts` — change `vacationWeeks` to `vacationDates: string[]`
+- `src/lib/calculations.ts` — update vacation logic to use dates instead of week indices
+- `src/context/ProjectContext.tsx` — bump version, update default resource shape
+- `src/pages/Index.tsx` — compute `grandTotal` using converted prices, pass currency to PriceAdjustments
+- `src/components/PriceAdjustments.tsx` — show target currency symbol everywhere
+- `src/components/ResourceManager.tsx` — replace week checkboxes with a date-picker calendar for vacation dates
 
