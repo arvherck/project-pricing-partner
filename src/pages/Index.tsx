@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { parseISO } from 'date-fns';
-import { Moon, Sun, Save, FilePlus, Trash2, ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
+import { Moon, Sun, Save, FilePlus, Trash2, ChevronDown, ChevronRight, BarChart3, Pencil } from 'lucide-react';
 import { ProjectProvider, useProject } from '@/context/ProjectContext';
 import ProjectSetup from '@/components/ProjectSetup';
 import RateCardEditor from '@/components/RateCardEditor';
@@ -148,7 +148,7 @@ function PricingCalculator() {
             <Tabs value={activeScenarioId} onValueChange={setActiveScenarioId} className="flex-1">
               <TabsList className="h-9">
                 {scenarios.map(s => (
-                  <TabsTrigger key={s.id} value={s.id} className="text-sm px-4"
+                  <TabsTrigger key={s.id} value={s.id} className="text-sm px-4 gap-1.5"
                     onDoubleClick={() => { setEditingScenarioId(s.id); setEditingScenarioName(s.name); }}>
                     {editingScenarioId === s.id ? (
                       <Input
@@ -156,11 +156,18 @@ function PricingCalculator() {
                         value={editingScenarioName}
                         onChange={e => setEditingScenarioName(e.target.value)}
                         onBlur={() => { renameScenario(s.id, editingScenarioName); setEditingScenarioId(null); }}
-                        onKeyDown={e => { if (e.key === 'Enter') { renameScenario(s.id, editingScenarioName); setEditingScenarioId(null); } }}
+                        onKeyDown={e => { if (e.key === 'Enter') { renameScenario(s.id, editingScenarioName); setEditingScenarioId(null); } if (e.key === 'Escape') setEditingScenarioId(null); }}
                         className="h-6 w-24 text-xs px-1"
                         onClick={e => e.stopPropagation()}
                       />
-                    ) : s.name}
+                    ) : (
+                      <>
+                        {s.name}
+                        {activeScenarioId === s.id && (
+                          <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditingScenarioId(s.id); setEditingScenarioName(s.name); }} />
+                        )}
+                      </>
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>

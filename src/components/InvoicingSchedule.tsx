@@ -191,8 +191,7 @@ export default function InvoicingSchedule() {
                   <TableHead className="min-w-[100px]">Label</TableHead>
                   <TableHead className="min-w-[150px]">Invoicing Date</TableHead>
                   <TableHead className="text-right min-w-[80px]">% of Total</TableHead>
-                  <TableHead className="text-right min-w-[120px]">Amount ({targetCurrency})</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Working Days</TableHead>
+                  <TableHead className="text-right min-w-[120px]">Amount ({symbol} {targetCurrency})</TableHead>
                   <TableHead className="text-right min-w-[120px]">% Work Delivered</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -252,7 +251,6 @@ export default function InvoicingSchedule() {
                         />
                       </TableCell>
                       <TableCell className="text-right text-sm">{symbol}{fmt(row.amount)}</TableCell>
-                      <TableCell className="text-right text-sm">{row.workingDays.toFixed(0)}</TableCell>
                       <TableCell className="text-right text-sm">{row.workDelivered.toFixed(1)}%</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeRow(row.id)}>
@@ -268,7 +266,6 @@ export default function InvoicingSchedule() {
                   <TableCell colSpan={2}>Total</TableCell>
                   <TableCell className={cn("text-right", percentExceeds && "text-destructive")}>{totalPercent.toFixed(1)}%</TableCell>
                   <TableCell className="text-right">{symbol}{fmt(totalAmount)}</TableCell>
-                  <TableCell className="text-right">{totalCalcDays.toFixed(0)}</TableCell>
                   <TableCell className="text-right">—</TableCell>
                   <TableCell />
                 </TableRow>

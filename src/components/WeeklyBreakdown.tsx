@@ -79,12 +79,12 @@ export default function WeeklyBreakdown() {
                       return (
                         <React.Fragment key={resource.id}>
                           <TableCell className="text-right text-xs">{days > 0 ? days.toFixed(1) : '—'}</TableCell>
-                          <TableCell className="text-right text-xs">{cost > 0 ? fmt(cost) : '—'}</TableCell>
+                          <TableCell className="text-right text-xs">{cost > 0 ? `${targetSymbol}${fmt(cost)}` : '—'}</TableCell>
                         </React.Fragment>
                       );
                     })}
                     <TableCell className="text-right text-xs font-semibold">{totalDays > 0 ? totalDays.toFixed(1) : '—'}</TableCell>
-                    <TableCell className="text-right text-xs font-semibold">{totalCost > 0 ? fmt(totalCost) : '—'}</TableCell>
+                    <TableCell className="text-right text-xs font-semibold">{totalCost > 0 ? `${targetSymbol}${fmt(totalCost)}` : '—'}</TableCell>
                   </TableRow>
                 );
               })}
@@ -96,13 +96,13 @@ export default function WeeklyBreakdown() {
                   return (
                     <React.Fragment key={resource.id}>
                       <TableCell className="text-right text-xs">{calc.totalWorkingDays.toFixed(1)}</TableCell>
-                      <TableCell className="text-right text-xs">{fmt(convertedTotal)}</TableCell>
+                      <TableCell className="text-right text-xs">{targetSymbol}{fmt(convertedTotal)}</TableCell>
                     </React.Fragment>
                   );
                 })}
                 <TableCell className="text-right text-xs">{calculations.reduce((s, c) => s + c.calc.totalWorkingDays, 0).toFixed(1)}</TableCell>
                 <TableCell className="text-right text-xs">
-                  {fmt(calculations.reduce((s, c) => s + convertCurrency(c.calc.totalPrice, COUNTRY_CURRENCY[c.resource.country], targetCurrency, rates), 0))}
+                  {targetSymbol}{fmt(calculations.reduce((s, c) => s + convertCurrency(c.calc.totalPrice, COUNTRY_CURRENCY[c.resource.country], targetCurrency, rates), 0))}
                 </TableCell>
               </TableRow>
             </TableBody>
