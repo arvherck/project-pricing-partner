@@ -38,15 +38,15 @@ function PricingCalculator() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
+      <header className="border-b bg-gradient-to-r from-primary/5 via-primary/3 to-transparent">
+        <div className="container mx-auto flex items-center justify-between px-6 py-5">
           <div>
-            <h1 className="text-xl font-bold">Project Pricing Calculator</h1>
-            <p className="text-sm text-muted-foreground">Consulting project cost estimation</p>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Project Pricing Calculator</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Consulting project cost estimation</p>
           </div>
         </div>
       </header>
-      <main className="container mx-auto space-y-6 px-4 py-6">
+      <main className="container mx-auto space-y-8 px-6 py-8">
         <ProjectSetup />
         <RateCardEditor />
         <ResourceManager />
