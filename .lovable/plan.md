@@ -1,31 +1,73 @@
 
 
-# Fix Invoicing "% Work Delivered" and Vacation Date UX
+# Visual Polish, Default Countries, Invoice Prefill, Decimal Rates, and Comprehensive PDF Export
 
-## Changes
+## 1. Visual Improvements
 
-### 1. Invoicing Schedule: Fix "% Work Delivered" and cap total at 100%
+**Theme update** (`src/index.css`): Shift to a modern, professional color scheme with a subtle blue-tinted primary, softer card borders, and slightly warmer backgrounds. Add subtle shadow to cards.
 
-**Problem**: "% Work Delivered" currently equals "% of Total" (it's just `workingDays / totalWorkingDays * 100`, which mirrors the input). It should reflect cumulative time elapsed up to each invoice date relative to project duration.
+**Header redesign** (`src/pages/Index.tsx`): Add a gradient accent bar or colored header background. Improve spacing and typography hierarchy throughout.
 
-**Fix in `src/components/InvoicingSchedule.tsx`**:
-- For each invoice row (sorted by date), calculate how many working days have elapsed from project start to that invoice's date, divided by total project working days. This gives the cumulative "% of work delivered" at each milestone.
-- Use `eachDayOfInterval` from project start to invoice date, filtering out weekends, holidays, and program vacation weeks, to count elapsed working days.
-- Cap "% of Total" input: when user types a value, clamp it so that the sum of all rows never exceeds 100%. Show a warning or auto-clamp to `100 - sumOfOtherRows`.
-- Show the total row's "% of Total" in red if it exceeds 100%.
+**Card styling** (`src/index.css` + components): Add subtle `shadow-sm` and `hover:shadow` transitions to all Card components via a global CSS class or by updating the card component defaults.
 
-### 2. Resource Vacation Calendar: Disable program vacation dates
+**Spacing and typography polish**: Increase vertical spacing between sections, improve label/heading hierarchy, add section dividers.
 
-**Problem**: Users can currently select dates that fall within program-level vacation weeks, leading to double-counting.
+## 2. Default Visible Countries: Sweden and Netherlands Only
 
-**Fix in `src/components/ResourceManager.tsx`**:
-- Pass `programVacationWeeks` and `weeks` (project weeks) to `ResourceCard`.
-- Compute a set of disabled dates: all weekdays that fall within program vacation weeks.
-- Pass these as `disabled` dates to the `Calendar` component so they appear greyed out and unclickable.
-- Add a small legend/note below the calendar: "Greyed-out dates are program vacation weeks."
-- If a resource already has vacation dates that overlap with program vacation weeks (from before), filter them out on render.
+**File**: `src/context/ProjectContext.tsx`
+
+Change the default `visibleCountries` from `[...COUNTRIES]` to `['Netherlands', 'Sweden']`. Bump `STATE_VERSION` to 7 so existing users get the new default. Users can still toggle other countries on via the Countries popover in the Rate Card.
+
+## 3. Prefill Invoicing Schedule
+
+**File**: `src/components/InvoicingSchedule.tsx`
+
+When `invoiceRows` is empty and both `startDate` and `endDate` are set, auto-generate invoice rows:
+- One on the start date (or next working day)
+- One on the 1st of each subsequent month within the project range (adjusted to next working day if it falls on weekend/holiday)
+- One on the end date (or previous working day)
+
+Working day adjustment checks weekends and public holidays of **all countries used by resources** in the project. The `percentOfTotal` is distributed evenly across rows (e.g., 6 invoices = ~16.67% each, rounded to sum to 100%).
+
+This prefill runs once when the component detects empty rows + valid dates. Users can still add/remove/edit rows freely.
+
+## 4. Allow 2 Decimal Places in Rate Card
+
+**File**: `src/components/RateCardEditor.tsx`
+
+- Change `parseInt(value) || 0` to `parseFloat(value) || 0` in `updateRate`
+- Add `step="0.01"` to the rate card `Input` elements
+- The rate card type is already `number`, so no type changes needed
+
+## 5. Comprehensive PDF Export
+
+**File**: `src/components/SummaryView.tsx`
+
+Expand `exportPDF` to include multiple sections using `jspdf-autotable`:
+
+1. **Project Setup**: Name, dates, total weeks, project currency
+2. **Resources**: Table with name, seniority, country, allocation %, vacation days count, hourly rate
+3. **Weekly Breakdown**: Table with weeks as rows, resources as columns showing days and cost (converted to target currency)
+4. **Summary**: Current resource cost table + subtotal/COLA/buffer/grand total
+5. **Invoicing Schedule**: Table with label, date, % of total, amount, working days, % work delivered
+6. **Exchange Rates**: Table showing EUR-based rates for all currencies in use, marking custom overrides
+
+Each section starts with a heading. Page breaks are inserted between major sections to avoid overflow.
 
 ## Files to Edit
-- `src/components/InvoicingSchedule.tsx` — calculate cumulative work delivered based on elapsed working days; cap % of total at 100%
-- `src/components/ResourceManager.tsx` — disable program vacation week dates in calendar, add legend
+
+| File | Changes |
+|------|---------|
+| `src/index.css` | Updated color palette, card shadows, subtle gradients |
+| `src/context/ProjectContext.tsx` | Default `visibleCountries` = `['Netherlands', 'Sweden']`, bump version to 7 |
+| `src/pages/Index.tsx` | Header visual refresh, card gap/spacing |
+| `src/components/RateCardEditor.tsx` | `parseFloat` + `step="0.01"` for decimal rates |
+| `src/components/InvoicingSchedule.tsx` | Auto-prefill logic when rows empty + dates set |
+| `src/components/SummaryView.tsx` | Expanded PDF with all 6 sections |
+
+## Technical Details
+
+**Invoice prefill working-day logic**: Collect holidays from all resource countries. For start-of-month dates, shift forward to the next weekday that is not a holiday in any project country. For the end date, shift backward similarly. Use `eachDayOfInterval`, `isWeekend`, and `isHoliday` from existing utils.
+
+**PDF layout**: Use `jspdf-autotable` for all tables. Track `doc.lastAutoTable.finalY` to position each section. Call `doc.addPage()` when `finalY` exceeds ~250 to prevent overflow.
 
