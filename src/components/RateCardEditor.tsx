@@ -14,7 +14,7 @@ export default function RateCardEditor() {
   const { rateCard, setRateCard, visibleCountries, setVisibleCountries } = useProject();
 
   const updateRate = (seniority: Seniority, country: Country, value: string) => {
-    const num = parseInt(value) || 0;
+    const num = parseFloat(value) || 0;
     setRateCard({
       ...rateCard,
       [seniority]: { ...rateCard[seniority], [country]: num },
@@ -84,6 +84,7 @@ export default function RateCardEditor() {
                       <TableCell key={s} className="p-1">
                         <Input
                           type="number"
+                          step="0.01"
                           className="h-8 text-center text-sm w-24"
                           value={rateCard[s]?.[c] ?? 0}
                           onChange={e => updateRate(s, c, e.target.value)}

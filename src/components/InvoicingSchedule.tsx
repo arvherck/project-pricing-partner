@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect, useState } from 'react';
-import { parseISO, format, eachDayOfInterval, isWeekend } from 'date-fns';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
+import { parseISO, format, eachDayOfInterval, isWeekend, addDays, startOfMonth, addMonths, isBefore, isAfter, isSameDay } from 'date-fns';
 import { Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
@@ -13,6 +13,16 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+
+/** Shift a date to the nearest working day (not weekend, not holiday in any project country) */
+function toWorkingDay(date: Date, allHolidays: Date[], direction: 'forward' | 'backward'): Date {
+  let d = new Date(date);
+  const step = direction === 'forward' ? 1 : -1;
+  while (isWeekend(d) || isHoliday(d, allHolidays)) {
+    d = addDays(d, step);
+  }
+  return d;
+}
 
 export default function InvoicingSchedule() {
   const {
@@ -40,7 +50,6 @@ export default function InvoicingSchedule() {
     return total;
   }, [resources, weeks, rateCard, startDate, endDate, targetCurrency, rates, colaEnabled, colaPercent, bufferEnabled, bufferPercent, programVacationWeeks]);
 
-  // Total project working days (across all resources, used for working-days column)
   const totalWorkingDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
     return resources.reduce((sum, r) => {
@@ -49,23 +58,71 @@ export default function InvoicingSchedule() {
     }, 0);
   }, [resources, weeks, rateCard, startDate, endDate, programVacationWeeks]);
 
-  // Total project calendar working days (not resource-weighted) for % work delivered calc
   const totalProjectWorkingDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
     const programVacSet = new Set(programVacationWeeks);
-    // Use first resource's country for holidays as a baseline, or Netherlands as fallback
     const country = resources.length > 0 ? resources[0].country : 'Netherlands';
     const holidays = getHolidaysInRange(country, startDate, endDate);
     const allDays = eachDayOfInterval({ start: startDate, end: endDate });
     return allDays.filter(d => {
       if (isWeekend(d)) return false;
       if (isHoliday(d, holidays)) return false;
-      // Check if this day falls in a program vacation week
       const weekIndex = weeks.findIndex(w => d >= w.startDate && d <= w.endDate);
       if (weekIndex >= 0 && programVacSet.has(weekIndex)) return false;
       return true;
     }).length;
   }, [startDate, endDate, weeks, programVacationWeeks, resources]);
+
+  // Prefill invoice rows when empty and dates are set
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current) return;
+    if (invoiceRows.length > 0 || !startDate || !endDate) return;
+    prefilled.current = true;
+
+    // Collect all holidays from all resource countries
+    const countries = resources.length > 0
+      ? [...new Set(resources.map(r => r.country))]
+      : ['Netherlands' as const];
+    const allHolidays = countries.flatMap(c => getHolidaysInRange(c, startDate, endDate));
+
+    const dates: Date[] = [];
+
+    // Start date (shift forward if not a working day)
+    dates.push(toWorkingDay(startDate, allHolidays, 'forward'));
+
+    // 1st of each subsequent month
+    let cursor = startOfMonth(addMonths(startDate, 1));
+    while (isBefore(cursor, endDate)) {
+      const wd = toWorkingDay(cursor, allHolidays, 'forward');
+      // Don't add if it would be same as end date or after
+      if (isBefore(wd, endDate) && !isSameDay(wd, dates[0])) {
+        dates.push(wd);
+      }
+      cursor = addMonths(cursor, 1);
+    }
+
+    // End date (shift backward if not a working day)
+    const endWd = toWorkingDay(endDate, allHolidays, 'backward');
+    // Only add if not already in the list
+    if (!dates.some(d => isSameDay(d, endWd))) {
+      dates.push(endWd);
+    }
+
+    // Distribute evenly
+    const count = dates.length;
+    const evenPercent = Math.floor((100 / count) * 100) / 100;
+    const rows: InvoiceRow[] = dates.map((d, i) => ({
+      id: crypto.randomUUID(),
+      label: i === 0 ? 'Project Start' : i === dates.length - 1 ? 'Project End' : `Invoice ${i + 1}`,
+      date: format(d, 'yyyy-MM-dd'),
+      percentOfTotal: i === dates.length - 1
+        ? Math.round((100 - evenPercent * (count - 1)) * 100) / 100
+        : evenPercent,
+    }));
+
+    setInvoiceRows(rows);
+  }, [startDate, endDate, invoiceRows.length, resources]);
 
   const addRow = () => {
     setInvoiceRows([...invoiceRows, {
@@ -77,7 +134,6 @@ export default function InvoicingSchedule() {
   };
 
   const updateRow = (id: string, updates: Partial<InvoiceRow>) => {
-    // If updating percentOfTotal, clamp so sum doesn't exceed 100
     if (updates.percentOfTotal !== undefined) {
       const otherSum = invoiceRows
         .filter(r => r.id !== id)
@@ -92,7 +148,6 @@ export default function InvoicingSchedule() {
     setInvoiceRows(invoiceRows.filter(r => r.id !== id));
   };
 
-  // Calculate cumulative % work delivered based on elapsed working days up to each invoice date
   const rowsWithCalc = useMemo(() => {
     const sorted = [...invoiceRows].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const programVacSet = new Set(programVacationWeeks);
@@ -102,7 +157,6 @@ export default function InvoicingSchedule() {
       const amount = grandTotal * (row.percentOfTotal / 100);
       const workingDays = totalWorkingDays * (row.percentOfTotal / 100);
 
-      // Calculate cumulative % work delivered: working days from project start to invoice date
       let workDelivered = 0;
       if (row.date && startDate && endDate && totalProjectWorkingDays > 0) {
         const invoiceDate = parseISO(row.date);
@@ -139,7 +193,7 @@ export default function InvoicingSchedule() {
       </CardHeader>
       <CardContent>
         {invoiceRows.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">No invoices added. Click "Add Invoice" to create an invoicing schedule.</p>
+          <p className="text-sm text-muted-foreground text-center py-8">No invoices added. Set project dates and add resources to auto-generate, or click "Add Invoice".</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -207,7 +261,7 @@ export default function InvoicingSchedule() {
               <TableFooter>
                 <TableRow className="font-bold">
                   <TableCell colSpan={2}>Total</TableCell>
-                  <TableCell className={cn("text-right", percentExceeds && "text-destructive")}>{totalPercent.toFixed(0)}%</TableCell>
+                  <TableCell className={cn("text-right", percentExceeds && "text-destructive")}>{totalPercent.toFixed(1)}%</TableCell>
                   <TableCell className="text-right">{symbol}{fmt(totalAmount)}</TableCell>
                   <TableCell className="text-right">{totalCalcDays.toFixed(0)}</TableCell>
                   <TableCell className="text-right">—</TableCell>

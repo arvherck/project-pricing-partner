@@ -30,7 +30,7 @@ interface ProjectState {
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
-const STATE_VERSION = 6;
+const STATE_VERSION = 7;
 
 const ProjectContext = createContext<ProjectState | null>(null);
 
@@ -71,7 +71,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [bufferPercent, setBufferPercent] = useState(saved?.bufferPercent ?? 10);
   const [targetCurrency, setTargetCurrency] = useState<Currency>(saved?.targetCurrency ?? 'EUR');
   const [programVacationWeeks, setProgramVacationWeeks] = useState<number[]>(saved?.programVacationWeeks ?? []);
-  const [visibleCountries, setVisibleCountries] = useState<Country[]>(saved?.visibleCountries ?? [...COUNTRIES]);
+  const [visibleCountries, setVisibleCountries] = useState<Country[]>(saved?.visibleCountries ?? ['Netherlands', 'Sweden'] as Country[]);
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>(saved?.invoiceRows ?? []);
   const [customRates, setCustomRates] = useState<Record<string, number | null>>(saved?.customRates ?? {});
 
