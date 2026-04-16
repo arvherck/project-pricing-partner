@@ -1,73 +1,103 @@
 
 
-# Visual Polish, Default Countries, Invoice Prefill, Decimal Rates, and Comprehensive PDF Export
+# All Suggested Improvements — Implementation Plan
 
-## 1. Visual Improvements
+## 1. Multi-Project Management
 
-**Theme update** (`src/index.css`): Shift to a modern, professional color scheme with a subtle blue-tinted primary, softer card borders, and slightly warmer backgrounds. Add subtle shadow to cards.
+**What**: Let users save, load, and switch between named project configurations. A dropdown in the header lists saved projects. "New Project" and "Delete" actions are available.
 
-**Header redesign** (`src/pages/Index.tsx`): Add a gradient accent bar or colored header background. Improve spacing and typography hierarchy throughout.
+**How**:
+- Store an array of project slots in `localStorage` under a separate key (`pricing-calculator-projects`), each with a unique ID, a name, and the full state blob.
+- Add `saveProject`, `loadProject`, `deleteProject`, `newProject` functions to `ProjectContext`.
+- Add a `Select` dropdown + "Save" / "New" / "Delete" buttons in the header area of `Index.tsx`.
+- When saving, serialize current state into the projects array. When loading, replace all context state with the selected project's data.
 
-**Card styling** (`src/index.css` + components): Add subtle `shadow-sm` and `hover:shadow` transitions to all Card components via a global CSS class or by updating the card component defaults.
+**Files**: `src/context/ProjectContext.tsx`, `src/pages/Index.tsx`
 
-**Spacing and typography polish**: Increase vertical spacing between sections, improve label/heading hierarchy, add section dividers.
+## 2. Duplicate Resource Button
 
-## 2. Default Visible Countries: Sweden and Netherlands Only
+**What**: Add a "Duplicate" icon button next to the delete button on each resource card. Clicking it clones the resource with a new ID and appended " (copy)" name.
 
-**File**: `src/context/ProjectContext.tsx`
+**How**:
+- In `ResourceManager.tsx`, add a `duplicateResource` function that copies the resource, assigns `crypto.randomUUID()`, and appends " (copy)" to the name.
+- Add a `Copy` icon button next to the `Trash2` button.
 
-Change the default `visibleCountries` from `[...COUNTRIES]` to `['Netherlands', 'Sweden']`. Bump `STATE_VERSION` to 7 so existing users get the new default. Users can still toggle other countries on via the Countries popover in the Rate Card.
+**Files**: `src/components/ResourceManager.tsx`
 
-## 3. Prefill Invoicing Schedule
+## 3. Collapsible Sections
 
-**File**: `src/components/InvoicingSchedule.tsx`
+**What**: Wrap each major section (Rate Card, Resources, Weekly Breakdown, Holiday Display, Price Adjustments, Summary, Invoicing) in a collapsible container so users can collapse sections they're not working on.
 
-When `invoiceRows` is empty and both `startDate` and `endDate` are set, auto-generate invoice rows:
-- One on the start date (or next working day)
-- One on the 1st of each subsequent month within the project range (adjusted to next working day if it falls on weekend/holiday)
-- One on the end date (or previous working day)
+**How**:
+- Use the existing `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from `@/components/ui/collapsible`.
+- In `Index.tsx`, wrap each component in a `Collapsible` with a header trigger containing the section title and a chevron icon. Default all sections to open.
+- Move the `CardHeader` into the `CollapsibleTrigger` for each section, adding a `ChevronDown`/`ChevronUp` icon.
 
-Working day adjustment checks weekends and public holidays of **all countries used by resources** in the project. The `percentOfTotal` is distributed evenly across rows (e.g., 6 invoices = ~16.67% each, rounded to sum to 100%).
+**Files**: `src/pages/Index.tsx`
 
-This prefill runs once when the component detects empty rows + valid dates. Users can still add/remove/edit rows freely.
+## 4. Scenario Comparison
 
-## 4. Allow 2 Decimal Places in Rate Card
+**What**: Let users create named "scenarios" within a project (e.g., "Lean Team" vs "Full Team") and compare them side-by-side. Each scenario has its own resources, rate card, and adjustments.
 
-**File**: `src/components/RateCardEditor.tsx`
+**How**:
+- Add a `scenarios` array to context, each scenario containing `{ id, name, resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent }`.
+- Default to one scenario ("Base").
+- Add a tab bar at the top of the main content for switching/adding/renaming scenarios.
+- Add a "Compare Scenarios" dialog that shows a side-by-side summary table (scenario name, total days, total cost, grand total).
+- Context changes: add `scenarios`, `activeScenarioId`, `setActiveScenarioId`, `addScenario`, `removeScenario`, `renameScenario`.
 
-- Change `parseInt(value) || 0` to `parseFloat(value) || 0` in `updateRate`
-- Add `step="0.01"` to the rate card `Input` elements
-- The rate card type is already `number`, so no type changes needed
+**Files**: `src/lib/types.ts` (add `Scenario` interface), `src/context/ProjectContext.tsx`, `src/pages/Index.tsx`, new `src/components/ScenarioCompare.tsx`
 
-## 5. Comprehensive PDF Export
+## 5. Excel/CSV Export
 
-**File**: `src/components/SummaryView.tsx`
+**What**: Add an "Export Excel" button next to the existing CSV and PDF buttons in the Summary section.
 
-Expand `exportPDF` to include multiple sections using `jspdf-autotable`:
+**How**:
+- Install `xlsx` (SheetJS) package.
+- In `SummaryView.tsx`, add an `exportExcel` function that creates a workbook with sheets: "Summary", "Weekly Breakdown", "Invoicing Schedule", "Exchange Rates".
+- Each sheet mirrors the corresponding PDF section as a formatted table.
+- Add a button with a spreadsheet icon.
 
-1. **Project Setup**: Name, dates, total weeks, project currency
-2. **Resources**: Table with name, seniority, country, allocation %, vacation days count, hourly rate
-3. **Weekly Breakdown**: Table with weeks as rows, resources as columns showing days and cost (converted to target currency)
-4. **Summary**: Current resource cost table + subtotal/COLA/buffer/grand total
-5. **Invoicing Schedule**: Table with label, date, % of total, amount, working days, % work delivered
-6. **Exchange Rates**: Table showing EUR-based rates for all currencies in use, marking custom overrides
+**Files**: `src/components/SummaryView.tsx`, `package.json`
 
-Each section starts with a heading. Page breaks are inserted between major sections to avoid overflow.
+## 6. Input Validation & Warnings
 
-## Files to Edit
+**What**: Show inline warnings for common issues — 0% allocation, no resources, invoice dates outside project range, missing project name/dates.
+
+**How**:
+- In `ResourceCard`, show an amber warning badge if `allocationPercent === 0`.
+- In `InvoicingSchedule`, highlight rows where the date falls outside `[startDate, endDate]` with a red border and tooltip.
+- In `ProjectSetup`, show a subtle warning if name is empty or dates are missing when resources exist.
+- In `SummaryView`, show an alert banner if total invoice % ≠ 100%.
+- Use the existing `Alert` component with `variant="destructive"` or a custom amber variant.
+
+**Files**: `src/components/ResourceManager.tsx`, `src/components/InvoicingSchedule.tsx`, `src/components/ProjectSetup.tsx`, `src/components/SummaryView.tsx`
+
+## 7. Dark Mode Toggle
+
+**What**: Add a sun/moon toggle button in the header that switches between light and dark themes.
+
+**How**:
+- The app already has dark mode CSS variables defined in `index.css` and `darkMode: "class"` in Tailwind config.
+- Add a `theme` state to `localStorage` and a toggle button in the header (`Index.tsx`).
+- On toggle, add/remove the `dark` class on `document.documentElement`.
+- Persist preference in `localStorage` under `pricing-calculator-theme`.
+
+**Files**: `src/pages/Index.tsx`
+
+---
+
+## Files Summary
 
 | File | Changes |
 |------|---------|
-| `src/index.css` | Updated color palette, card shadows, subtle gradients |
-| `src/context/ProjectContext.tsx` | Default `visibleCountries` = `['Netherlands', 'Sweden']`, bump version to 7 |
-| `src/pages/Index.tsx` | Header visual refresh, card gap/spacing |
-| `src/components/RateCardEditor.tsx` | `parseFloat` + `step="0.01"` for decimal rates |
-| `src/components/InvoicingSchedule.tsx` | Auto-prefill logic when rows empty + dates set |
-| `src/components/SummaryView.tsx` | Expanded PDF with all 6 sections |
-
-## Technical Details
-
-**Invoice prefill working-day logic**: Collect holidays from all resource countries. For start-of-month dates, shift forward to the next weekday that is not a holiday in any project country. For the end date, shift backward similarly. Use `eachDayOfInterval`, `isWeekend`, and `isHoliday` from existing utils.
-
-**PDF layout**: Use `jspdf-autotable` for all tables. Track `doc.lastAutoTable.finalY` to position each section. Call `doc.addPage()` when `finalY` exceeds ~250 to prevent overflow.
+| `src/context/ProjectContext.tsx` | Multi-project save/load, scenario state |
+| `src/pages/Index.tsx` | Header with project switcher, dark mode toggle, collapsible sections |
+| `src/components/ResourceManager.tsx` | Duplicate button, 0% allocation warning |
+| `src/components/SummaryView.tsx` | Excel export, invoice % warning |
+| `src/components/InvoicingSchedule.tsx` | Out-of-range date warning |
+| `src/components/ProjectSetup.tsx` | Missing fields warning |
+| `src/components/ScenarioCompare.tsx` | New — side-by-side scenario comparison dialog |
+| `src/lib/types.ts` | `Scenario` interface |
+| `package.json` | Add `xlsx` dependency |
 
