@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { parseISO, format, eachDayOfInterval, isWeekend, addDays, startOfMonth, addMonths, isBefore, isAfter, isSameDay } from 'date-fns';
-import { Plus, Trash2, CalendarIcon } from 'lucide-react';
+import { Plus, Trash2, CalendarIcon, AlertTriangle } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { InvoiceRow, CURRENCY_SYMBOLS, COUNTRY_CURRENCY } from '@/lib/types';
@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-/** Shift a date to the nearest working day (not weekend, not holiday in any project country) */
 function toWorkingDay(date: Date, allHolidays: Date[], direction: 'forward' | 'backward'): Date {
   let d = new Date(date);
   const step = direction === 'forward' ? 1 : -1;
@@ -73,43 +73,34 @@ export default function InvoicingSchedule() {
     }).length;
   }, [startDate, endDate, weeks, programVacationWeeks, resources]);
 
-  // Prefill invoice rows when empty and dates are set
   const prefilled = useRef(false);
   useEffect(() => {
     if (prefilled.current) return;
     if (invoiceRows.length > 0 || !startDate || !endDate) return;
     prefilled.current = true;
 
-    // Collect all holidays from all resource countries
     const countries = resources.length > 0
       ? [...new Set(resources.map(r => r.country))]
       : ['Netherlands' as const];
     const allHolidays = countries.flatMap(c => getHolidaysInRange(c, startDate, endDate));
 
     const dates: Date[] = [];
-
-    // Start date (shift forward if not a working day)
     dates.push(toWorkingDay(startDate, allHolidays, 'forward'));
 
-    // 1st of each subsequent month
     let cursor = startOfMonth(addMonths(startDate, 1));
     while (isBefore(cursor, endDate)) {
       const wd = toWorkingDay(cursor, allHolidays, 'forward');
-      // Don't add if it would be same as end date or after
       if (isBefore(wd, endDate) && !isSameDay(wd, dates[0])) {
         dates.push(wd);
       }
       cursor = addMonths(cursor, 1);
     }
 
-    // End date (shift backward if not a working day)
     const endWd = toWorkingDay(endDate, allHolidays, 'backward');
-    // Only add if not already in the list
     if (!dates.some(d => isSameDay(d, endWd))) {
       dates.push(endWd);
     }
 
-    // Distribute evenly
     const count = dates.length;
     const evenPercent = Math.floor((100 / count) * 100) / 100;
     const rows: InvoiceRow[] = dates.map((d, i) => ({
@@ -125,19 +116,12 @@ export default function InvoicingSchedule() {
   }, [startDate, endDate, invoiceRows.length, resources]);
 
   const addRow = () => {
-    setInvoiceRows([...invoiceRows, {
-      id: crypto.randomUUID(),
-      label: '',
-      date: '',
-      percentOfTotal: 0,
-    }]);
+    setInvoiceRows([...invoiceRows, { id: crypto.randomUUID(), label: '', date: '', percentOfTotal: 0 }]);
   };
 
   const updateRow = (id: string, updates: Partial<InvoiceRow>) => {
     if (updates.percentOfTotal !== undefined) {
-      const otherSum = invoiceRows
-        .filter(r => r.id !== id)
-        .reduce((s, r) => s + r.percentOfTotal, 0);
+      const otherSum = invoiceRows.filter(r => r.id !== id).reduce((s, r) => s + r.percentOfTotal, 0);
       const maxAllowed = Math.max(0, 100 - otherSum);
       updates.percentOfTotal = Math.min(Math.max(0, updates.percentOfTotal), maxAllowed);
     }
@@ -173,7 +157,12 @@ export default function InvoicingSchedule() {
         workDelivered = (elapsedWorkingDays / totalProjectWorkingDays) * 100;
       }
 
-      return { ...row, amount, workingDays, workDelivered };
+      // Check if date is outside project range
+      const isOutOfRange = row.date && startDate && endDate && (
+        isBefore(parseISO(row.date), startDate) || isAfter(parseISO(row.date), endDate)
+      );
+
+      return { ...row, amount, workingDays, workDelivered, isOutOfRange: !!isOutOfRange };
     });
   }, [invoiceRows, grandTotal, totalWorkingDays, totalProjectWorkingDays, startDate, endDate, weeks, programVacationWeeks, resources]);
 
@@ -209,54 +198,70 @@ export default function InvoicingSchedule() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rowsWithCalc.map(row => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <Input
-                        value={row.label}
-                        onChange={e => updateRow(row.id, { label: e.target.value })}
-                        placeholder="e.g. Start"
-                        className="h-8 text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className={cn("h-8 w-full justify-start text-left text-sm font-normal", !row.date && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-3 w-3" />
-                            {row.date ? format(parseISO(row.date), 'dd-MMM-yy') : 'Pick date'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={row.date ? parseISO(row.date) : undefined}
-                            onSelect={d => d && updateRow(row.id, { date: format(d, 'yyyy-MM-dd') })}
-                            className="pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </TableCell>
-                    <TableCell className="p-1">
-                      <Input
-                        type="number"
-                        value={row.percentOfTotal}
-                        onChange={e => updateRow(row.id, { percentOfTotal: parseFloat(e.target.value) || 0 })}
-                        className="h-8 text-right text-sm w-20"
-                        min={0}
-                        max={100}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right text-sm">{symbol}{fmt(row.amount)}</TableCell>
-                    <TableCell className="text-right text-sm">{row.workingDays.toFixed(0)}</TableCell>
-                    <TableCell className="text-right text-sm">{row.workDelivered.toFixed(1)}%</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeRow(row.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                <TooltipProvider>
+                  {rowsWithCalc.map(row => (
+                    <TableRow key={row.id} className={cn(row.isOutOfRange && "bg-destructive/5")}>
+                      <TableCell>
+                        <Input
+                          value={row.label}
+                          onChange={e => updateRow(row.id, { label: e.target.value })}
+                          placeholder="e.g. Start"
+                          className="h-8 text-sm"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn(
+                                "h-8 w-full justify-start text-left text-sm font-normal",
+                                !row.date && "text-muted-foreground",
+                                row.isOutOfRange && "border-destructive text-destructive"
+                              )}>
+                                <CalendarIcon className="mr-2 h-3 w-3" />
+                                {row.date ? format(parseISO(row.date), 'dd-MMM-yy') : 'Pick date'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={row.date ? parseISO(row.date) : undefined}
+                                onSelect={d => d && updateRow(row.id, { date: format(d, 'yyyy-MM-dd') })}
+                                className="pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          {row.isOutOfRange && (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                              </TooltipTrigger>
+                              <TooltipContent>Date is outside the project range</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <Input
+                          type="number"
+                          value={row.percentOfTotal}
+                          onChange={e => updateRow(row.id, { percentOfTotal: parseFloat(e.target.value) || 0 })}
+                          className="h-8 text-right text-sm w-20"
+                          min={0}
+                          max={100}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right text-sm">{symbol}{fmt(row.amount)}</TableCell>
+                      <TableCell className="text-right text-sm">{row.workingDays.toFixed(0)}</TableCell>
+                      <TableCell className="text-right text-sm">{row.workDelivered.toFixed(1)}%</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeRow(row.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TooltipProvider>
               </TableBody>
               <TableFooter>
                 <TableRow className="font-bold">

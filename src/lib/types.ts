@@ -111,3 +111,14 @@ export interface InvoiceRow {
   date: string; // ISO date
   percentOfTotal: number;
 }
+
+export interface Scenario {
+  id: string;
+  name: string;
+  resources: Resource[];
+  rateCard: RateCard;
+  colaEnabled: boolean;
+  colaPercent: number;
+  bufferEnabled: boolean;
+  bufferPercent: number;
+}

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { parseISO, format, eachDayOfInterval, isWeekend } from 'date-fns';
-import { Plus, Trash2, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, Copy, AlertTriangle } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { Resource, SENIORITY_LEVELS, COUNTRIES, SENIORITY_EXPERIENCE, COUNTRY_CURRENCY, CURRENCY_SYMBOLS, COUNTRY_FLAGS } from '@/lib/types';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 export default function ResourceManager() {
@@ -32,6 +33,16 @@ export default function ResourceManager() {
       vacationDates: [],
     };
     setResources([...resources, newResource]);
+  };
+
+  const duplicateResource = (r: Resource) => {
+    const clone: Resource = {
+      ...r,
+      id: crypto.randomUUID(),
+      name: r.name ? `${r.name} (copy)` : '',
+      vacationDates: [...r.vacationDates],
+    };
+    setResources([...resources, clone]);
   };
 
   const updateResource = (id: string, updates: Partial<Resource>) => {
@@ -63,6 +74,7 @@ export default function ResourceManager() {
             programVacationWeeks={programVacationWeeks}
             onUpdate={updateResource}
             onRemove={removeResource}
+            onDuplicate={duplicateResource}
           />
         ))}
       </CardContent>
@@ -71,7 +83,7 @@ export default function ResourceManager() {
 }
 
 function ResourceCard({
-  resource, weeks, rateCard, startDate, endDate, programVacationWeeks, onUpdate, onRemove,
+  resource, weeks, rateCard, startDate, endDate, programVacationWeeks, onUpdate, onRemove, onDuplicate,
 }: {
   resource: Resource;
   weeks: ReturnType<typeof getProjectWeeks>;
@@ -81,6 +93,7 @@ function ResourceCard({
   programVacationWeeks: number[];
   onUpdate: (id: string, u: Partial<Resource>) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (r: Resource) => void;
 }) {
   const calc = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -90,13 +103,11 @@ function ResourceCard({
   const currency = COUNTRY_CURRENCY[resource.country];
   const symbol = CURRENCY_SYMBOLS[currency];
 
-  // Parse vacation dates for the calendar
   const selectedDates = useMemo(() =>
     (resource.vacationDates ?? []).map(d => parseISO(d)),
     [resource.vacationDates]
   );
 
-  // Compute disabled dates: weekdays in program-level vacation weeks
   const programVacationDates = useMemo(() => {
     if (!startDate || !endDate || weeks.length === 0) return [];
     const programVacSet = new Set(programVacationWeeks);
@@ -116,28 +127,27 @@ function ResourceCard({
     if (!date) return;
     const iso = format(date, 'yyyy-MM-dd');
     const current = resource.vacationDates ?? [];
-    // Filter out any dates that overlap with program vacation weeks
     const updated = current.includes(iso)
       ? current.filter(d => d !== iso)
       : [...current, iso];
     onUpdate(resource.id, { vacationDates: updated });
   };
 
-  // Filter out resource vacation dates that overlap with program vacation weeks
   const cleanVacationDates = useMemo(() => {
     const programSet = new Set(programVacationDates.map(d => format(d, 'yyyy-MM-dd')));
     return (resource.vacationDates ?? []).filter(d => !programSet.has(d));
   }, [resource.vacationDates, programVacationDates]);
 
-  // If there are stale overlapping dates, clean them up
   useMemo(() => {
     if (cleanVacationDates.length !== (resource.vacationDates ?? []).length) {
       onUpdate(resource.id, { vacationDates: cleanVacationDates });
     }
   }, [cleanVacationDates]);
 
+  const isZeroAllocation = resource.allocationPercent === 0;
+
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-4">
+    <div className={cn("rounded-lg border bg-card p-4 space-y-4", isZeroAllocation && "border-amber-400/50")}>
       <div className="flex items-center justify-between">
         <div className="grid gap-3 flex-1 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1">
@@ -172,8 +182,12 @@ function ResourceCard({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Allocation: {resource.allocationPercent}%</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Allocation: {resource.allocationPercent}%
+              {isZeroAllocation && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+            </Label>
             <Slider value={[resource.allocationPercent]} onValueChange={v => onUpdate(resource.id, { allocationPercent: v[0] })} min={0} max={100} step={5} className="mt-2" />
+            {isZeroAllocation && <p className="text-xs text-amber-500">0% allocation — this resource won't be billed</p>}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Vacation Days</Label>
@@ -212,9 +226,26 @@ function ResourceCard({
             </Popover>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="ml-2 text-destructive shrink-0" onClick={() => onRemove(resource.id)}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex flex-col gap-1 ml-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onDuplicate(resource)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Duplicate</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onRemove(resource.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Remove</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
       {calc && (
         <div className="flex gap-4 text-sm">
