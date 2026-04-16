@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { parseISO } from 'date-fns';
-import { X } from 'lucide-react';
+
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { COUNTRY_CURRENCY, CURRENCY_SYMBOLS } from '@/lib/types';
