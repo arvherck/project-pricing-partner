@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, AlertTriangle } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,12 +10,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getTotalWeeks, getProjectWeeks } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { ALL_CURRENCIES, CURRENCY_SYMBOLS, Currency } from '@/lib/types';
 
 export default function ProjectSetup() {
-  const { config, setConfig, programVacationWeeks, setProgramVacationWeeks, targetCurrency, setTargetCurrency } = useProject();
+  const { config, setConfig, programVacationWeeks, setProgramVacationWeeks, targetCurrency, setTargetCurrency, resources } = useProject();
 
   const startDate = config.startDate ? parseISO(config.startDate) : undefined;
   const endDate = config.endDate ? parseISO(config.endDate) : undefined;
@@ -30,12 +31,25 @@ export default function ProjectSetup() {
     );
   };
 
+  const hasResources = resources.length > 0;
+  const missingName = !config.name && hasResources;
+  const missingDates = (!config.startDate || !config.endDate) && hasResources;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Project Setup</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {(missingName || missingDates) && (
+          <Alert variant="default" className="border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+              {missingName && missingDates ? 'Project name and dates are missing.' : missingName ? 'Project name is empty.' : 'Project dates are missing.'}
+              {' '}Fill these in for accurate calculations.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-2">
             <Label>Project Name</Label>

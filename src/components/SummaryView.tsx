@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { parseISO, format, eachDayOfInterval, isWeekend } from 'date-fns';
-import { Download, RotateCcw } from 'lucide-react';
+import { Download, RotateCcw, FileSpreadsheet } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { COUNTRY_CURRENCY, CURRENCY_SYMBOLS, COUNTRY_FLAGS, Currency, SENIORITY_LEVELS } from '@/lib/types';
@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertTriangle } from 'lucide-react';
 
 export default function SummaryView() {
   const {
@@ -57,6 +59,9 @@ export default function SummaryView() {
   const targetSymbol = CURRENCY_SYMBOLS[targetCurrency];
   const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
+  const totalInvoicePercent = invoiceRows.reduce((s, r) => s + r.percentOfTotal, 0);
+  const invoicePercentMismatch = invoiceRows.length > 0 && Math.abs(totalInvoicePercent - 100) > 0.01;
+
   const handleRateChange = (currency: Currency, value: string) => {
     const num = parseFloat(value);
     if (!value || isNaN(num)) {
@@ -86,7 +91,6 @@ export default function SummaryView() {
     URL.revokeObjectURL(url);
   };
 
-  // Compute invoice data for PDF (same logic as InvoicingSchedule)
   const invoiceCalcData = useMemo(() => {
     if (!startDate || !endDate) return [];
     const programVacSet = new Set(programVacationWeeks);
@@ -149,7 +153,6 @@ export default function SummaryView() {
       y += 7;
     };
 
-    // 1. Project Setup
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.text(config.name || 'Project Pricing', 14, y);
@@ -161,7 +164,6 @@ export default function SummaryView() {
     doc.text(`Currency: ${targetCurrency}`, 14, y);
     y += 10;
 
-    // 2. Resources
     sectionTitle('Resources');
     autoTable(doc, {
       startY: y,
@@ -169,18 +171,13 @@ export default function SummaryView() {
       body: resources.map(r => {
         const cur = CURRENCY_SYMBOLS[COUNTRY_CURRENCY[r.country]];
         const rate = rateCard[r.seniority]?.[r.country] ?? 0;
-        return [
-          r.name || 'Unnamed', r.seniority, r.country,
-          `${r.allocationPercent}%`, `${(r.vacationDates ?? []).length}`,
-          `${cur}${rate}`,
-        ];
+        return [r.name || 'Unnamed', r.seniority, r.country, `${r.allocationPercent}%`, `${(r.vacationDates ?? []).length}`, `${cur}${rate}`];
       }),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [59, 130, 246] },
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // 3. Weekly Breakdown
     if (calculations.length > 0 && weeks.length > 0) {
       sectionTitle('Weekly Breakdown');
       const wbHead = ['Week', ...calculations.flatMap(c => [`${c.name} Days`, `${c.name} Cost`]), 'Total Days', 'Total Cost'];
@@ -207,7 +204,6 @@ export default function SummaryView() {
       y = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // 4. Summary
     sectionTitle('Summary');
     autoTable(doc, {
       startY: y,
@@ -227,7 +223,6 @@ export default function SummaryView() {
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // 5. Invoicing Schedule
     if (invoiceCalcData.length > 0) {
       sectionTitle('Invoicing Schedule');
       const invTotalPct = invoiceCalcData.reduce((s, r) => s + r.pct, 0);
@@ -247,7 +242,6 @@ export default function SummaryView() {
       y = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // 6. Exchange Rates
     if (usedCurrencies.length > 1) {
       sectionTitle('Exchange Rates Applied');
       const rateRows = usedCurrencies.filter(c => c !== 'EUR').map(c => {
@@ -266,6 +260,72 @@ export default function SummaryView() {
     doc.save(`${config.name || 'project'}-pricing.pdf`);
   };
 
+  const exportExcel = async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+
+    // Summary sheet
+    const summaryData = [
+      ['Resource', 'Country', 'Working Days', 'Hours', 'Local Cost', `Cost (${targetCurrency})`],
+      ...calculations.map(c => {
+        const ls = CURRENCY_SYMBOLS[c.localCurrency];
+        return [c.name, c.country, c.totalWorkingDays, c.totalWorkingHours, c.totalPrice, c.convertedPrice];
+      }),
+      [],
+      ['Subtotal', '', totalDays, totalHours, '', grandTotalConverted],
+      ...(colaEnabled ? [['COLA (' + colaPercent + '%)', '', '', '', '', grandTotalConverted * (colaMultiplier - 1)]] : []),
+      ...(bufferEnabled ? [['Buffer (' + bufferPercent + '%)', '', '', '', '', afterCola * (bufferMultiplier - 1)]] : []),
+      ['Grand Total', '', totalDays, totalHours, '', afterBuffer],
+    ];
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+    // Weekly Breakdown sheet
+    if (calculations.length > 0 && weeks.length > 0) {
+      const wbHead = ['Week', ...calculations.flatMap(c => [`${c.name} Days`, `${c.name} Cost`]), 'Total Days', 'Total Cost'];
+      const wbBody = weeks.map(week => {
+        let tDays = 0, tCost = 0;
+        const cells = calculations.flatMap(c => {
+          const wb2 = c.weeklyBreakdown.find((w: any) => w.week === week.index);
+          const days = wb2?.billableDays ?? 0;
+          const localCost = wb2?.price ?? 0;
+          const cost = convertCurrency(localCost, c.localCurrency as Currency, targetCurrency, rates);
+          tDays += days;
+          tCost += cost;
+          return [days, cost];
+        });
+        return [week.label, ...cells, tDays, tCost];
+      });
+      const wbWs = XLSX.utils.aoa_to_sheet([wbHead, ...wbBody]);
+      XLSX.utils.book_append_sheet(wb, wbWs, 'Weekly Breakdown');
+    }
+
+    // Invoicing Schedule sheet
+    if (invoiceCalcData.length > 0) {
+      const invData = [
+        ['Label', 'Date', '% of Total', `Amount (${targetCurrency})`, 'Working Days', '% Work Delivered'],
+        ...invoiceCalcData.map(r => [r.label, r.date, r.pct, r.amount, r.workingDays, r.workDelivered]),
+      ];
+      const invWs = XLSX.utils.aoa_to_sheet(invData);
+      XLSX.utils.book_append_sheet(wb, invWs, 'Invoicing Schedule');
+    }
+
+    // Exchange Rates sheet
+    if (usedCurrencies.length > 1) {
+      const rateData = [
+        ['From', 'To', 'Rate', 'Source'],
+        ...usedCurrencies.filter(c => c !== 'EUR').map(c => {
+          const isCustom = customRates[`EUR_${c}`] != null;
+          return ['EUR', c, mergedEurRates[c] ?? 0, isCustom ? 'Custom' : 'Market'];
+        }),
+      ];
+      const rateWs = XLSX.utils.aoa_to_sheet(rateData);
+      XLSX.utils.book_append_sheet(wb, rateWs, 'Exchange Rates');
+    }
+
+    XLSX.writeFile(wb, `${config.name || 'project'}-pricing.xlsx`);
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -274,12 +334,23 @@ export default function SummaryView() {
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={calculations.length === 0}>
             <Download className="mr-1 h-4 w-4" /> CSV
           </Button>
+          <Button variant="outline" size="sm" onClick={exportExcel} disabled={calculations.length === 0}>
+            <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
+          </Button>
           <Button variant="outline" size="sm" onClick={exportPDF} disabled={calculations.length === 0}>
             <Download className="mr-1 h-4 w-4" /> PDF
           </Button>
         </div>
       </CardHeader>
       <CardContent>
+        {invoicePercentMismatch && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Invoice percentages total {totalInvoicePercent.toFixed(1)}% — they should add up to 100%.
+            </AlertDescription>
+          </Alert>
+        )}
         {calculations.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">Add resources and set project dates to see the summary.</p>
         ) : (
