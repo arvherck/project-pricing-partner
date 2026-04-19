@@ -122,3 +122,10 @@ export interface Scenario {
   bufferEnabled: boolean;
   bufferPercent: number;
 }
+
+export interface RateCardTemplate {
+  id: string;
+  name: string;
+  rateCard: RateCard;
+  createdAt: number;
+}
