@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { ProjectConfig, Resource, RateCard, Currency, Country, InvoiceRow, Scenario } from '@/lib/types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { ProjectConfig, Resource, RateCard, Currency, Country, InvoiceRow, Scenario, RateCardTemplate } from '@/lib/types';
 import { defaultRateCard } from '@/lib/rateCardDefaults';
+import { useHistory } from '@/hooks/use-history';
 
 interface SavedProject {
   id: string;
