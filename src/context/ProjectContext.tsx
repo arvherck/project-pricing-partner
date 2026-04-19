@@ -49,10 +49,21 @@ interface ProjectState {
   loadProject: (id: string) => void;
   deleteProject: (id: string) => void;
   newProject: () => void;
+  // Rate card templates
+  rateTemplates: RateCardTemplate[];
+  saveRateTemplate: (name: string) => void;
+  loadRateTemplate: (id: string) => void;
+  deleteRateTemplate: (id: string) => void;
+  // Undo/redo
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
 const PROJECTS_STORAGE_KEY = 'pricing-calculator-projects';
+const TEMPLATES_STORAGE_KEY = 'pricing-calculator-rate-templates';
 const STATE_VERSION = 8;
 
 const ProjectContext = createContext<ProjectState | null>(null);
