@@ -8,10 +8,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Eye, BookmarkPlus, FolderOpen, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function RateCardEditor() {
-  const { rateCard, setRateCard, visibleCountries, setVisibleCountries } = useProject();
+  const { rateCard, setRateCard, visibleCountries, setVisibleCountries,
+    rateTemplates, saveRateTemplate, loadRateTemplate, deleteRateTemplate } = useProject();
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [templateName, setTemplateName] = useState('');
 
   const updateRate = (seniority: Seniority, country: Country, value: string) => {
     const num = parseFloat(value) || 0;
