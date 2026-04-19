@@ -303,6 +303,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     targetCurrency, programVacationWeeks, visibleCountries, invoiceRows, customRates,
     scenarios, activeScenarioId, currentProjectId]);
 
+  // Undo/redo: track scenario-scoped state (resources, rateCard, cola/buffer, invoiceRows)
+  const historySnapshot = useMemo(
+    () => ({ resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, invoiceRows }),
+    [resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, invoiceRows]
+  );
+
+  const restoreSnapshot = useCallback((snap: typeof historySnapshot) => {
+    setResources(snap.resources);
+    setRateCard(snap.rateCard);
+    setColaEnabled(snap.colaEnabled);
+    setColaPercent(snap.colaPercent);
+    setBufferEnabled(snap.bufferEnabled);
+    setBufferPercent(snap.bufferPercent);
+    setInvoiceRows(snap.invoiceRows);
+  }, []);
+
+  const { undo, redo, canUndo, canRedo, reset: resetHistory } = useHistory(historySnapshot, restoreSnapshot);
+
+  // Reset history when switching scenarios or projects
+  useEffect(() => {
+    resetHistory(historySnapshot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScenarioId, currentProjectId]);
+
   return (
     <ProjectContext.Provider value={{
       config, setConfig, resources, setResources, rateCard, setRateCard,
@@ -316,6 +340,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       scenarios, setScenarios, activeScenarioId, setActiveScenarioId,
       addScenario, removeScenario, renameScenario,
       savedProjects, currentProjectId, saveCurrentProject, loadProject, deleteProject, newProject,
+      rateTemplates, saveRateTemplate, loadRateTemplate, deleteRateTemplate,
+      undo, redo, canUndo, canRedo,
     }}>
       {children}
     </ProjectContext.Provider>
