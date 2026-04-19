@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { parseISO } from 'date-fns';
-import { Moon, Sun, Save, FilePlus, Trash2, ChevronDown, ChevronRight, BarChart3, Pencil } from 'lucide-react';
+import { Moon, Sun, Save, FilePlus, Trash2, ChevronDown, ChevronRight, BarChart3, Pencil, Undo2, Redo2 } from 'lucide-react';
 import { ProjectProvider, useProject } from '@/context/ProjectContext';
 import ProjectSetup from '@/components/ProjectSetup';
 import RateCardEditor from '@/components/RateCardEditor';
@@ -11,6 +11,7 @@ import SummaryView from '@/components/SummaryView';
 import HolidayDisplay from '@/components/HolidayDisplay';
 import InvoicingSchedule from '@/components/InvoicingSchedule';
 import ScenarioCompare from '@/components/ScenarioCompare';
+import UtilizationChart from '@/components/UtilizationChart';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { fetchECBRates, mergeRates, convertCurrency } from '@/lib/currencyRates';
 import { COUNTRY_CURRENCY } from '@/lib/types';
@@ -43,6 +44,7 @@ function PricingCalculator() {
     config, resources, rateCard, programVacationWeeks, targetCurrency, customRates,
     scenarios, activeScenarioId, setActiveScenarioId, addScenario, removeScenario, renameScenario,
     savedProjects, currentProjectId, saveCurrentProject, loadProject, deleteProject, newProject,
+    undo, redo, canUndo, canRedo,
   } = useProject();
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
