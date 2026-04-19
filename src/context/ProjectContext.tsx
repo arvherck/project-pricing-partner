@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { ProjectConfig, Resource, RateCard, Currency, Country, InvoiceRow, Scenario } from '@/lib/types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { ProjectConfig, Resource, RateCard, Currency, Country, InvoiceRow, Scenario, RateCardTemplate } from '@/lib/types';
 import { defaultRateCard } from '@/lib/rateCardDefaults';
+import { useHistory } from '@/hooks/use-history';
 
 interface SavedProject {
   id: string;
@@ -48,10 +49,21 @@ interface ProjectState {
   loadProject: (id: string) => void;
   deleteProject: (id: string) => void;
   newProject: () => void;
+  // Rate card templates
+  rateTemplates: RateCardTemplate[];
+  saveRateTemplate: (name: string) => void;
+  loadRateTemplate: (id: string) => void;
+  deleteRateTemplate: (id: string) => void;
+  // Undo/redo
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const STORAGE_KEY = 'pricing-calculator-state';
 const PROJECTS_STORAGE_KEY = 'pricing-calculator-projects';
+const TEMPLATES_STORAGE_KEY = 'pricing-calculator-rate-templates';
 const STATE_VERSION = 8;
 
 const ProjectContext = createContext<ProjectState | null>(null);
@@ -123,6 +135,39 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [activeScenarioId, setActiveScenarioId] = useState<string>(saved?.activeScenarioId ?? scenarios[0]?.id ?? '');
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>(loadProjects());
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(saved?.currentProjectId ?? null);
+  const [rateTemplates, setRateTemplates] = useState<RateCardTemplate[]>(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
+
+  const persistTemplates = (next: RateCardTemplate[]) => {
+    setRateTemplates(next);
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const saveRateTemplate = useCallback((name: string) => {
+    const tpl: RateCardTemplate = {
+      id: crypto.randomUUID(),
+      name,
+      rateCard: JSON.parse(JSON.stringify(rateCard)),
+      createdAt: Date.now(),
+    };
+    persistTemplates([...rateTemplates, tpl]);
+  }, [rateCard, rateTemplates]);
+
+  const loadRateTemplate = useCallback((id: string) => {
+    const tpl = rateTemplates.find(t => t.id === id);
+    if (!tpl) return;
+    setRateCard(JSON.parse(JSON.stringify(tpl.rateCard)));
+  }, [rateTemplates]);
+
+  const deleteRateTemplate = useCallback((id: string) => {
+    persistTemplates(rateTemplates.filter(t => t.id !== id));
+  }, [rateTemplates]);
+
 
   // Sync active scenario with main state
   useEffect(() => {
@@ -258,6 +303,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     targetCurrency, programVacationWeeks, visibleCountries, invoiceRows, customRates,
     scenarios, activeScenarioId, currentProjectId]);
 
+  // Undo/redo: track scenario-scoped state (resources, rateCard, cola/buffer, invoiceRows)
+  const historySnapshot = useMemo(
+    () => ({ resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, invoiceRows }),
+    [resources, rateCard, colaEnabled, colaPercent, bufferEnabled, bufferPercent, invoiceRows]
+  );
+
+  const restoreSnapshot = useCallback((snap: typeof historySnapshot) => {
+    setResources(snap.resources);
+    setRateCard(snap.rateCard);
+    setColaEnabled(snap.colaEnabled);
+    setColaPercent(snap.colaPercent);
+    setBufferEnabled(snap.bufferEnabled);
+    setBufferPercent(snap.bufferPercent);
+    setInvoiceRows(snap.invoiceRows);
+  }, []);
+
+  const { undo, redo, canUndo, canRedo, reset: resetHistory } = useHistory(historySnapshot, restoreSnapshot);
+
+  // Reset history when switching scenarios or projects
+  useEffect(() => {
+    resetHistory(historySnapshot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScenarioId, currentProjectId]);
+
   return (
     <ProjectContext.Provider value={{
       config, setConfig, resources, setResources, rateCard, setRateCard,
@@ -271,6 +340,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       scenarios, setScenarios, activeScenarioId, setActiveScenarioId,
       addScenario, removeScenario, renameScenario,
       savedProjects, currentProjectId, saveCurrentProject, loadProject, deleteProject, newProject,
+      rateTemplates, saveRateTemplate, loadRateTemplate, deleteRateTemplate,
+      undo, redo, canUndo, canRedo,
     }}>
       {children}
     </ProjectContext.Provider>

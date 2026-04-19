@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { parseISO } from 'date-fns';
-import { Moon, Sun, Save, FilePlus, Trash2, ChevronDown, ChevronRight, BarChart3, Pencil } from 'lucide-react';
+import { Moon, Sun, Save, FilePlus, Trash2, ChevronDown, ChevronRight, BarChart3, Pencil, Undo2, Redo2 } from 'lucide-react';
 import { ProjectProvider, useProject } from '@/context/ProjectContext';
 import ProjectSetup from '@/components/ProjectSetup';
 import RateCardEditor from '@/components/RateCardEditor';
@@ -11,6 +11,7 @@ import SummaryView from '@/components/SummaryView';
 import HolidayDisplay from '@/components/HolidayDisplay';
 import InvoicingSchedule from '@/components/InvoicingSchedule';
 import ScenarioCompare from '@/components/ScenarioCompare';
+import UtilizationChart from '@/components/UtilizationChart';
 import { getProjectWeeks, calculateResource } from '@/lib/calculations';
 import { fetchECBRates, mergeRates, convertCurrency } from '@/lib/currencyRates';
 import { COUNTRY_CURRENCY } from '@/lib/types';
@@ -43,6 +44,7 @@ function PricingCalculator() {
     config, resources, rateCard, programVacationWeeks, targetCurrency, customRates,
     scenarios, activeScenarioId, setActiveScenarioId, addScenario, removeScenario, renameScenario,
     savedProjects, currentProjectId, saveCurrentProject, loadProject, deleteProject, newProject,
+    undo, redo, canUndo, canRedo,
   } = useProject();
 
   const startDate = config.startDate ? parseISO(config.startDate) : null;
@@ -74,6 +76,27 @@ function PricingCalculator() {
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
   }, [dark]);
 
+  // Keyboard shortcuts: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z or Ctrl+Y = redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo]);
+
   // Scenario editing
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null);
   const [editingScenarioName, setEditingScenarioName] = useState('');
@@ -102,6 +125,22 @@ function PricingCalculator() {
               </Select>
             )}
             <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={undo} disabled={!canUndo}>
+                    <Undo2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={redo} disabled={!canRedo}>
+                    <Redo2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Redo (Ctrl+Shift+Z)</TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="icon" className="h-9 w-9" onClick={saveCurrentProject}>
@@ -198,6 +237,9 @@ function PricingCalculator() {
         </CollapsibleSection>
         <CollapsibleSection title="Resources">
           <ResourceManager />
+        </CollapsibleSection>
+        <CollapsibleSection title="Resource Utilization" defaultOpen={false}>
+          <UtilizationChart />
         </CollapsibleSection>
         <CollapsibleSection title="Weekly Breakdown" defaultOpen={false}>
           <WeeklyBreakdown />
