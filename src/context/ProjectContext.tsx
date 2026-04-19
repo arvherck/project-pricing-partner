@@ -135,6 +135,39 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [activeScenarioId, setActiveScenarioId] = useState<string>(saved?.activeScenarioId ?? scenarios[0]?.id ?? '');
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>(loadProjects());
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(saved?.currentProjectId ?? null);
+  const [rateTemplates, setRateTemplates] = useState<RateCardTemplate[]>(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
+
+  const persistTemplates = (next: RateCardTemplate[]) => {
+    setRateTemplates(next);
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const saveRateTemplate = useCallback((name: string) => {
+    const tpl: RateCardTemplate = {
+      id: crypto.randomUUID(),
+      name,
+      rateCard: JSON.parse(JSON.stringify(rateCard)),
+      createdAt: Date.now(),
+    };
+    persistTemplates([...rateTemplates, tpl]);
+  }, [rateCard, rateTemplates]);
+
+  const loadRateTemplate = useCallback((id: string) => {
+    const tpl = rateTemplates.find(t => t.id === id);
+    if (!tpl) return;
+    setRateCard(JSON.parse(JSON.stringify(tpl.rateCard)));
+  }, [rateTemplates]);
+
+  const deleteRateTemplate = useCallback((id: string) => {
+    persistTemplates(rateTemplates.filter(t => t.id !== id));
+  }, [rateTemplates]);
+
 
   // Sync active scenario with main state
   useEffect(() => {
